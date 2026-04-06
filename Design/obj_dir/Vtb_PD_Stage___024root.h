@@ -40,6 +40,8 @@ class alignas(VL_CACHE_LINE_BYTES) Vtb_PD_Stage___024root final : public Verilat
     CData/*0:0*/ tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__tag_matched1;
     CData/*0:0*/ tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__tag_matched2;
     CData/*2:0*/ tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
+    CData/*2:0*/ tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__next_sp;
+    CData/*0:0*/ tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__pop;
     CData/*0:0*/ __VstlFirstIteration;
     CData/*0:0*/ __Vtrigprevexpr___TOP__tb_PD_Stage__DOT__CLK__0;
     CData/*0:0*/ __VactContinue;
@@ -59,8 +61,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vtb_PD_Stage___024root final : public Verilat
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__final_pred_target1;
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__final_pred_target2;
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__pc;
-    IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__ret_addr1;
-    IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__ret_addr2;
+    IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__pred_return_address;
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__write_pc_data;
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__next_pc;
     IData/*31:0*/ tb_PD_Stage__DOT__dut__DOT__pc1;

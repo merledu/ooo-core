@@ -2,7 +2,7 @@
 module BTB #(
     parameter BTB_ADDRESS = 6,
     parameter XLEN = 32,
-    parameter TAG_SIZE = XLEN-BTB_ADDRESS-2
+    parameter TAG_SIZE = XLEN - BTB_ADDRESS - 2
 ) (
     input logic CLK, reset, update_btb, ex_is_ret, ex_is_branch,
     input logic [XLEN-1:0] pc1, pc2, ex_pc,
@@ -11,16 +11,18 @@ module BTB #(
     output logic [XLEN-1:0] pred_target1, pred_target2
 );  
     typedef struct packed {
-        logic [TAG_SIZE  -1:0] tag;
+        logic [TAG_SIZE-1:0] tag;
         logic [XLEN-1:0] target_address;
         logic valid;
         logic is_ret;
         logic is_branch;
     } btb_organization;
 
-    (* ram_style = "block" *) btb_organization BTB [0:(1<<BTB_ADDRESS)-1];  
+    (* ram_style = "block" *) btb_organization BTB [0:(1<<BTB_ADDRESS)-1]; 
+     
     btb_organization btb_entry1, btb_entry2;
     logic tag_matched1, tag_matched2;
+
     //read signals
     logic [TAG_SIZE-1:0] btb_tag1, btb_tag2, reg_btb_tag1, reg_btb_tag2;
     logic [BTB_ADDRESS-1:0] btb_index1, btb_index2;

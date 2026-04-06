@@ -24,10 +24,10 @@ module PD_Stage #(
     logic [XLEN-1:0] final_pred_target1, final_pred_target2, pc;
     logic pred_taken1, pred_taken2, btb_hit1, btb_hit2;
     logic is_branch1, is_branch2, is_ret1, is_ret2;
-    logic [XLEN-1:0] pred_target1, pred_target2, ret_addr1, ret_addr2;
+    logic [XLEN-1:0] pred_target1, pred_target2, pred_return_address;
     logic [RAS_ADDRESS-1:0] sp_snap;
     logic [2*XLEN-1:0] ras_snap;
-    logic [XLEN-1:0] write_pc_data,next_pc, pc1, pc2;
+    logic [XLEN-1:0] write_pc_data, next_pc, pc1, pc2;
 
     assign pc1 = pd_pc;
     assign pc2 = pd_pc+4;
@@ -79,12 +79,12 @@ module PD_Stage #(
         .pred_taken2            (pred_taken2),
         .pred_target1           (pred_target1),
         .pred_target2           (pred_target2),
-        .ret_addr1              (ret_addr1),
-        .ret_addr2              (ret_addr2),
+        .ret_addr1              (pred_return_address),
+        .ret_addr2              (pred_return_address),
         .actual_target_address  (actual_target_address),
         //outputs
         .pc                     (pc),
-        .write_pc_data             (write_pc_data),
+        .write_pc_data          (write_pc_data),
         .next_pc                (next_pc),
         .final_pred_target1     (final_pred_target1),
         .final_pred_target2     (final_pred_target2)
@@ -138,8 +138,7 @@ module PD_Stage #(
         .btb_is_ret2             (is_ret2),
         .actual_return_address   (actual_return_address),
         //outputs
-        .ret_addr1               (ret_addr1),
-        .ret_addr2               (ret_addr2),
+        .pred_return_address     (pred_return_address),
         .sp_snap                 (sp_snap),
         .ras_snap                (ras_snap)
     );

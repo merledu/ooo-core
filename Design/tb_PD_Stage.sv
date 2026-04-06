@@ -40,49 +40,44 @@ module tb_PD_Stage;
         //test1 (adding jal/jalr instruction from ex stage due to misprediction)
         @(posedge CLK);
         reset = 0;
-        actual_taken =1;//NT
+        actual_taken = 0;//NT
         mispredict = 1;
         restore_ghr = 0;
         restore_ras = 0;
         update_pht = 0;
         update_btb = 1; 
-        update_ras = 0;
-        ex_is_ret = 0;
-        ex_is_branch = 0; //is JAL/JALR
-        actual_target_address = 32'h0000008;
-        actual_return_address = 32'h44444444;
-        ex_pc                 = 32'h0000010;
+        update_ras = 1;
+        ex_is_ret = 1;
+        ex_is_branch = 0; //is branch
+        actual_target_address = 8;
+        actual_return_address = 8;
+        ex_pc                 = 16;
         ghr_snap =  9'b101010101;
         pd_sp_snap = 3'b100;
         pd_ras_snap = 64'hAAAAAAAA88888888;
-        rb_pht_index = 9'hAA1;
+        rb_pht_index = 9'h004;
 
         @(posedge CLK);
-        mispredict =0;
-        
-        @(posedge CLK);
-        mispredict =0;
-
-         @(posedge CLK);
         reset = 0;
-        actual_taken =1;//NT
+        actual_taken =0;//NT
         mispredict = 0;
         restore_ghr = 0;
         restore_ras = 0;
         update_pht = 0;
-        update_btb =0; 
+        update_btb = 0; 
         update_ras = 0;
         ex_is_ret = 0;
-        ex_is_branch = 0; //is JAL/JALR
-        actual_target_address = 32'h00000008;
+        ex_is_branch = 0; //is branch
+        actual_target_address = 8;
         actual_return_address = 32'h44444444;
-        ex_pc                 = 32'h00000010;
+        ex_pc                 = 16;
+        // rb_sp_snap = 2;
+        // rb_ras_snap = 64'hAAAAAAAA88888888;
         ghr_snap =  9'b101010101;
         pd_sp_snap = 3'b100;
         pd_ras_snap = 64'hAAAAAAAA88888888;
-        rb_pht_index = 9'hAA1;
-        @(posedge CLK);
-        mispredict =0;
+        rb_pht_index = 9'h004;
+
         #200;        
          $finish;
     end

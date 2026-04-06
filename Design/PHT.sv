@@ -6,7 +6,7 @@ module PHT #(
     input logic [PHT_ADDRESS-1:0] pht_index1, pht_index2, rb_pht_index, 
     output logic pred_taken1, pred_taken2
 );
-    (* ram_style = "block" *) logic [COUNTER_SIZE-1:0] PHT [0:(1<<PHT_ADDRESS)-1];
+    (* ram_style = "distributed" *) logic [COUNTER_SIZE-1:0] PHT [0:(1<<PHT_ADDRESS)-1];
 
     function automatic logic [COUNTER_SIZE-1:0] train_pht(
         input logic taken, 
@@ -27,7 +27,7 @@ module PHT #(
                 2'b01: new_state = 2'b00;
                 2'b10: new_state = 2'b01;
                 2'b11: new_state = 2'b10;
-            endcase           
+            endcase      
         end
         return new_state;
     endfunction

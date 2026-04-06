@@ -49,22 +49,22 @@ VL_INLINE_OPT VlCoroutine Vtb_PD_Stage___024root___eval_initial__TOP__Vtiming__1
                                                        41);
     vlSelf->__Vm_traceActivity[2U] = 1U;
     vlSelf->tb_PD_Stage__DOT__reset = 0U;
-    vlSelf->tb_PD_Stage__DOT__actual_taken = 1U;
+    vlSelf->tb_PD_Stage__DOT__actual_taken = 0U;
     vlSelf->tb_PD_Stage__DOT__mispredict = 1U;
     vlSelf->tb_PD_Stage__DOT__restore_ghr = 0U;
     vlSelf->tb_PD_Stage__DOT__restore_ras = 0U;
     vlSelf->tb_PD_Stage__DOT__update_pht = 0U;
     vlSelf->tb_PD_Stage__DOT__update_btb = 1U;
-    vlSelf->tb_PD_Stage__DOT__update_ras = 0U;
-    vlSelf->tb_PD_Stage__DOT__ex_is_ret = 0U;
+    vlSelf->tb_PD_Stage__DOT__update_ras = 1U;
+    vlSelf->tb_PD_Stage__DOT__ex_is_ret = 1U;
     vlSelf->tb_PD_Stage__DOT__ex_is_branch = 0U;
     vlSelf->tb_PD_Stage__DOT__actual_target_address = 8U;
-    vlSelf->tb_PD_Stage__DOT__actual_return_address = 0x44444444U;
+    vlSelf->tb_PD_Stage__DOT__actual_return_address = 8U;
     vlSelf->tb_PD_Stage__DOT__ex_pc = 0x10U;
     vlSelf->tb_PD_Stage__DOT__ghr_snap = 0x155U;
     vlSelf->tb_PD_Stage__DOT__pd_sp_snap = 4U;
     vlSelf->tb_PD_Stage__DOT__pd_ras_snap = 0xaaaaaaaa88888888ULL;
-    vlSelf->tb_PD_Stage__DOT__rb_pht_index = 0xa1U;
+    vlSelf->tb_PD_Stage__DOT__rb_pht_index = 4U;
     co_await vlSelf->__VtrigSched_hf88ba093__0.trigger(0U, 
                                                        nullptr, 
                                                        "@(posedge tb_PD_Stage.CLK)", 
@@ -72,7 +72,7 @@ VL_INLINE_OPT VlCoroutine Vtb_PD_Stage___024root___eval_initial__TOP__Vtiming__1
                                                        60);
     vlSelf->__Vm_traceActivity[2U] = 1U;
     vlSelf->tb_PD_Stage__DOT__reset = 0U;
-    vlSelf->tb_PD_Stage__DOT__actual_taken = 1U;
+    vlSelf->tb_PD_Stage__DOT__actual_taken = 0U;
     vlSelf->tb_PD_Stage__DOT__mispredict = 0U;
     vlSelf->tb_PD_Stage__DOT__restore_ghr = 0U;
     vlSelf->tb_PD_Stage__DOT__restore_ras = 0U;
@@ -87,19 +87,12 @@ VL_INLINE_OPT VlCoroutine Vtb_PD_Stage___024root___eval_initial__TOP__Vtiming__1
     vlSelf->tb_PD_Stage__DOT__ghr_snap = 0x155U;
     vlSelf->tb_PD_Stage__DOT__pd_sp_snap = 4U;
     vlSelf->tb_PD_Stage__DOT__pd_ras_snap = 0xaaaaaaaa88888888ULL;
-    vlSelf->tb_PD_Stage__DOT__rb_pht_index = 0xa1U;
-    co_await vlSelf->__VtrigSched_hf88ba093__0.trigger(0U, 
-                                                       nullptr, 
-                                                       "@(posedge tb_PD_Stage.CLK)", 
-                                                       "/home/mutahir/Documents/SV/OOO/Design/tb_PD_Stage.sv", 
-                                                       78);
-    vlSelf->__Vm_traceActivity[2U] = 1U;
-    vlSelf->tb_PD_Stage__DOT__mispredict = 0U;
+    vlSelf->tb_PD_Stage__DOT__rb_pht_index = 4U;
     co_await vlSelf->__VdlySched.delay(0xc8ULL, nullptr, 
                                        "/home/mutahir/Documents/SV/OOO/Design/tb_PD_Stage.sv", 
-                                       80);
+                                       81);
     vlSelf->__Vm_traceActivity[2U] = 1U;
-    VL_FINISH_MT("/home/mutahir/Documents/SV/OOO/Design/tb_PD_Stage.sv", 81, "");
+    VL_FINISH_MT("/home/mutahir/Documents/SV/OOO/Design/tb_PD_Stage.sv", 82, "");
     vlSelf->__Vm_traceActivity[2U] = 1U;
 }
 
@@ -108,6 +101,23 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___act_comb__TOP__0(Vtb_PD_Stage___024r
     Vtb_PD_Stage__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     VL_DEBUG_IF(VL_DBG_MSGF("+    Vtb_PD_Stage___024root___act_comb__TOP__0\n"); );
     // Body
+    vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__next_sp 
+        = (7U & (((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp) 
+                  + (IData)(vlSelf->tb_PD_Stage__DOT__update_ras)) 
+                 - (IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__pop)));
+    vlSelf->tb_PD_Stage__DOT__dut__DOT__pred_return_address 
+        = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS
+        [vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__next_sp];
+    vlSelf->tb_PD_Stage__DOT__dut__DOT__final_pred_target1 
+        = ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret1)
+            ? vlSelf->tb_PD_Stage__DOT__dut__DOT__pred_return_address
+            : (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry1 
+                       >> 3U)));
+    vlSelf->tb_PD_Stage__DOT__dut__DOT__final_pred_target2 
+        = ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret2)
+            ? vlSelf->tb_PD_Stage__DOT__dut__DOT__pred_return_address
+            : (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry2 
+                       >> 3U)));
     vlSelf->tb_PD_Stage__DOT__dut__DOT__write_pc_data 
         = ((IData)(vlSelf->tb_PD_Stage__DOT__reset)
             ? 0U : ((IData)(vlSelf->tb_PD_Stage__DOT__mispredict)
@@ -206,8 +216,6 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
     __Vdlyvlsb__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4 = 0;
     CData/*0:0*/ __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4;
     __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4 = 0;
-    CData/*2:0*/ __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
-    __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp = 0;
     CData/*2:0*/ __Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0;
     __Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0 = 0;
     IData/*31:0*/ __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0;
@@ -227,11 +235,9 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
     // Body
     __Vdlyvset__tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT__v0 = 0U;
     __Vdlyvset__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v0 = 0U;
-    __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
-        = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
+    __Vdly__tb_PD_Stage__DOT__dut__DOT__ghr_out = vlSelf->tb_PD_Stage__DOT__dut__DOT__ghr_out;
     __Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0 = 0U;
     __Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2 = 0U;
-    __Vdly__tb_PD_Stage__DOT__dut__DOT__ghr_out = vlSelf->tb_PD_Stage__DOT__dut__DOT__ghr_out;
     if (vlSelf->tb_PD_Stage__DOT__update_btb) {
         __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v0 
             = (vlSelf->tb_PD_Stage__DOT__ex_pc >> 8U);
@@ -268,11 +274,9 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
     if (vlSelf->tb_PD_Stage__DOT__reset) {
         __Vdly__tb_PD_Stage__DOT__dut__DOT__ghr_out = 0U;
         vlSelf->tb_PD_Stage__DOT__dut__DOT__pc = 0U;
-        __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp = 0U;
-        vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr1 = 0U;
-        vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr2 = 0U;
         vlSelf->tb_PD_Stage__DOT__dut__DOT__sp_snap = 0U;
         vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_snap = 0ULL;
+        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp = 0U;
     } else {
         if (vlSelf->tb_PD_Stage__DOT__restore_ghr) {
             __Vdly__tb_PD_Stage__DOT__dut__DOT__ghr_out 
@@ -290,8 +294,6 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
                                                    ? vlSelf->tb_PD_Stage__DOT__dut__DOT__write_pc_data
                                                    : vlSelf->tb_PD_Stage__DOT__dut__DOT__next_pc);
         if (vlSelf->tb_PD_Stage__DOT__restore_ras) {
-            __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
-                = vlSelf->tb_PD_Stage__DOT__rb_sp_snap;
             __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0 
                 = (IData)(vlSelf->tb_PD_Stage__DOT__rb_ras_snap);
             __Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0 = 1U;
@@ -304,7 +306,10 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
             __Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v1 
                 = (7U & ((IData)(vlSelf->tb_PD_Stage__DOT__rb_sp_snap) 
                          - (IData)(2U)));
-        } else {
+            vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
+                = vlSelf->tb_PD_Stage__DOT__rb_sp_snap;
+        } else if (((IData)(vlSelf->tb_PD_Stage__DOT__update_ras) 
+                    | (IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__pop))) {
             vlSelf->tb_PD_Stage__DOT__dut__DOT__sp_snap 
                 = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
             vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_snap 
@@ -315,11 +320,6 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
                                                 [(7U 
                                                   & ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp) 
                                                      - (IData)(1U)))])));
-            __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
-                = (7U & (((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp) 
-                          + (IData)(vlSelf->tb_PD_Stage__DOT__update_ras)) 
-                         - (3U & ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret1) 
-                                  + (IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret2)))));
             if (vlSelf->tb_PD_Stage__DOT__update_ras) {
                 __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2 
                     = vlSelf->tb_PD_Stage__DOT__actual_return_address;
@@ -327,14 +327,8 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
                 __Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2 
                     = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
             }
-            vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr1 
-                = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS
-                [(7U & ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp) 
-                        - (IData)(1U)))];
-            vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr2 
-                = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS
-                [(7U & ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp) 
-                        - (IData)(2U)))];
+            vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
+                = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__next_sp;
         }
     }
     vlSelf->tb_PD_Stage__DOT__pd_pht_index2 = vlSelf->tb_PD_Stage__DOT__dut__DOT__pht_index2;
@@ -357,18 +351,6 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
         [(0x3fU & (((IData)(4U) + vlSelf->tb_PD_Stage__DOT__dut__DOT__pc1) 
                    >> 2U))];
     vlSelf->tb_PD_Stage__DOT__dut__DOT__ghr_out = __Vdly__tb_PD_Stage__DOT__dut__DOT__ghr_out;
-    vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp 
-        = __Vdly__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__sp;
-    if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0) {
-        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0] 
-            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0;
-        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v1] 
-            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v1;
-    }
-    if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2) {
-        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2] 
-            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2;
-    }
     if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v0) {
         vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v0] 
             = (((~ (0xffffffULL << __Vdlyvlsb__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v0)) 
@@ -400,6 +382,16 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
                 [__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4]) 
                | (0x7ffffffffffffffULL & ((QData)((IData)(__Vdlyvval__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4)) 
                                           << __Vdlyvlsb__tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__BTB__v4)));
+    }
+    if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0) {
+        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0] 
+            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v0;
+        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v1] 
+            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v1;
+    }
+    if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2) {
+        vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2] 
+            = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__RAS__v2;
     }
     if (vlSelf->tb_PD_Stage__DOT__update_pht) {
         __Vfunc_tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__train_pht__0__current_state 
@@ -433,8 +425,6 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
         = (1U & (vlSelf->tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT
                  [vlSelf->tb_PD_Stage__DOT__dut__DOT__pht_index2] 
                  >> 1U));
-    vlSelf->tb_PD_Stage__DOT__pd_sp_snap = vlSelf->tb_PD_Stage__DOT__dut__DOT__sp_snap;
-    vlSelf->tb_PD_Stage__DOT__pd_ras_snap = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_snap;
     vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__tag_matched1 
         = ((0xffffffU & (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry1 
                                  >> 0x23U))) == vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__reg_btb_tag1);
@@ -465,20 +455,15 @@ VL_INLINE_OPT void Vtb_PD_Stage___024root___nba_sequent__TOP__0(Vtb_PD_Stage___0
         = (((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__tag_matched2) 
             & (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry2 
                        >> 2U))) & (IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry2));
+    vlSelf->tb_PD_Stage__DOT__pd_sp_snap = vlSelf->tb_PD_Stage__DOT__dut__DOT__sp_snap;
+    vlSelf->tb_PD_Stage__DOT__pd_ras_snap = vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_snap;
     if (__Vdlyvset__tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT__v0) {
         vlSelf->tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT[__Vdlyvdim0__tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT__v0] 
             = __Vdlyvval__tb_PD_Stage__DOT__dut__DOT__pht_instantiation__DOT__PHT__v0;
     }
-    vlSelf->tb_PD_Stage__DOT__dut__DOT__final_pred_target1 
-        = ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret1)
-            ? vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr1
-            : (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry1 
-                       >> 3U)));
-    vlSelf->tb_PD_Stage__DOT__dut__DOT__final_pred_target2 
-        = ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret2)
-            ? vlSelf->tb_PD_Stage__DOT__dut__DOT__ret_addr2
-            : (IData)((vlSelf->tb_PD_Stage__DOT__dut__DOT__btb_instantiation__DOT__btb_entry2 
-                       >> 3U)));
+    vlSelf->tb_PD_Stage__DOT__dut__DOT__ras_instantiation__DOT__pop 
+        = ((IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret1) 
+           | (IData)(vlSelf->tb_PD_Stage__DOT__dut__DOT__is_ret2));
 }
 
 void Vtb_PD_Stage___024root___eval_nba(Vtb_PD_Stage___024root* vlSelf) {
