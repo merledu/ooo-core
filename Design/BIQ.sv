@@ -4,7 +4,7 @@ module BIQ #(
     parameter PHT_ADDRESS = 9,
     parameter GHR_SIZE = 9
 ) (
-    input logic CLK, reset, flush, pred_valid1, pred_valid2, biq_alloc1, biq_alloc2, pred_taken1, pred_taken2,
+    input logic CLK, reset, biq_dealloc, flush, pred_valid1, pred_valid2, biq_alloc1, biq_alloc2, pred_taken1, pred_taken2,
     input logic [BIQ_ADDRESS:0] biq_id, // biq id(5 bits) + slot id (1bit)=6
     input logic [XLEN-1:0] pred_target1, pred_target2,
     input logic [PHT_ADDRESS-1:0] pht_index1, pht_index2,
@@ -37,20 +37,23 @@ module BIQ #(
     //write to biq        
     always_ff @(posedge CLK) begin
         if (biq_alloc1) begin
-            BIQ_BANK0[biq_head_ptr].predicted_valid <= pred_valid1;
-            BIQ_BANK0[biq_head_ptr].predicted_taken <= pred_taken1;
-            BIQ_BANK0[biq_head_ptr].predicted_target <= pred_target1;
-            BIQ_BANK0[biq_head_ptr].pht_table_index <= pht_index1;
+            BIQ_BANK0[biq_tail_ptr].predicted_valid <= pred_valid1;
+            BIQ_BANK0[biq_tail_ptr].predicted_taken <= pred_taken1;
+            BIQ_BANK0[biq_tail_ptr].predicted_target <= pred_target1;
+            BIQ_BANK0[biq_tail_ptr].pht_table_index <= pht_index1;
         end
         if (biq_alloc2) begin
-            BIQ_BANK1[biq_head_ptr].predicted_valid <= pred_valid2;
-            BIQ_BANK1[biq_head_ptr].predicted_taken <= pred_taken2;
-            BIQ_BANK1[biq_head_ptr].predicted_target <= pred_target2;
-            BIQ_BANK1[biq_head_ptr].pht_table_index <= pht_index2;
+            BIQ_BANK1[biq_tail_ptr].predicted_valid <= pred_valid2;
+            BIQ_BANK1[biq_tail_ptr].predicted_taken <= pred_taken2;
+            BIQ_BANK1[biq_tail_ptr].predicted_target <= pred_target2;
+            BIQ_BANK1[biq_tail_ptr].pht_table_index <= pht_index2;
         end
         if (biq_alloc1 || biq_alloc2) begin
             biq_tail_ptr <= biq_tail_ptr + 1;
-            BIQ_GHR[biq_head_ptr] <= prev_ghr;
+            BIQ_GHR[biq_tail_ptr] <= prev_ghr;
+        end
+        if (biq_dealloc) begin
+            biq_head_ptr <= biq_head_ptr + 1;
         end
     end
     // reading from biq    
