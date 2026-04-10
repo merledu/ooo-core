@@ -14,7 +14,7 @@ module IF_Stage #(
 
     output logic if_pred_taken1, if_pred_taken2, if_btb_hit1, if_btb_hit2,
     output logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target1, if_pred_target2,
-    output logic [XLEN-3:0] if_pc1, if_pc2,
+    output logic [XLEN-3:0] if_pc,
     output logic [PHT_ADDRESS-1:0] if_pht_index1, if_pht_index2,
     output logic [RAS_ADDRESS-1:0] if_sp_snap,
     output logic [2*XLEN-1:0] if_ras_snap,
@@ -30,8 +30,7 @@ module IF_Stage #(
         if_pred_taken2 <= pd_pred_taken2;
         if_btb_hit1 <= pd_btb_hit1;
         if_btb_hit2 <= pd_btb_hit2;
-        if_pc1 <= instr1_addr;
-        if_pc2 <= instr2_addr;
+        if_pc <= instr1_addr;
         if_pred_target1 <= pd_pred_target1;
         if_pred_target2 <= pd_pred_target2;
         if_pht_index1 <= pd_pht_index1;
