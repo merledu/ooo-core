@@ -17,7 +17,7 @@ module ID_Stage #(
     input logic [GHR_SIZE-1:0] if_prev_ghr,
     output logic [RAS_ADDRESS-1:0] id_biq_sp_snap,
     output logic [2*XLEN-1:0] id_biq_ras_snap,
-    output logic stall_frontend,
+    output logic stall_frontend, id_take_snap,
     output logic [2:0] id_funct3_1, id_funct3_2,
     output logic [6:0] id_funct7_1, id_funct7_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
@@ -42,7 +42,15 @@ module ID_Stage #(
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
     logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2;
     
+    assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
+    assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
+    assign is_control_flow_instr1 = (Branch_1 || Jump_1);
+    assign is_control_flow_instr2 = (Branch_2 || Jump_2);
+    assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit1);
+    assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
+
     always_ff @(posedge CLK) begin 
+        id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
         id_pc <= if_pc;
         id_funct3_1 <= if_instr1[14:12];
         id_funct3_2 <= if_instr2[14:12];
@@ -77,13 +85,6 @@ module ID_Stage #(
         id_immtype1 <= imm_type1;
         id_immtype2 <= imm_type2;
     end
-
-    assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
-    assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
-    assign is_control_flow_instr1 = (Branch_1 || Jump_1);
-    assign is_control_flow_instr2 = (Branch_2 || Jump_2);
-    assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit1);
-    assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
 
     CU cu_instantiation1 (
         .opcode     (opcode_1),
