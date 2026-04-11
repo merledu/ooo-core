@@ -11,7 +11,7 @@ module InstructionMemory #(
     logic [XLEN-1:0] IM [0:MEM_ROWS-1];
 
     initial begin   
-        $readmemh(mem_file_path, IM);
+        $readmemh("instructions.hex", IM);
     end
 
     always_ff @(posedge CLK) begin
