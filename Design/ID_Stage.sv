@@ -66,7 +66,7 @@ module ID_Stage #(
             id_funct7_1 <= if_instr1[31:25];
             id_funct7_2 <= if_instr2[31:25]; 
             id_alu_op1 <= ALUOp_1;
-            id_alu_op2 <= ALUOp_2;
+            id_alu_op2 <= ALUOp_2; 
             id_jump_reg1 <= JumpReg_1;
             id_jump_reg2 <= JumpReg_2;
             id_jump1 <= Jump_1;
