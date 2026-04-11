@@ -13,12 +13,30 @@ module IG #(
     always_comb begin
         opcode = instruction[OPCODE_SIZE-1:0];
         case(opcode) 
-            7'b0010011, 7'b0000011, 7'b1100111: immediate_output = {{9{instruction[31]}},instruction[31:20]}; imm_type = 0; 
-            7'b0010111, 7'b0110111: immediate_output = {instruction[31:12], 1'b0}; imm_type = 1;
-            7'b0100011: immediate_output = {{9{instruction[31]}}, instruction[31:25], instruction[11:7]}; imm_type = 0;
-            7'b1100011: immediate_output = {{8{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8],1'b0}; imm_type = 0;
-            7'b1101111: immediate_output = {instruction[31], instruction[19:12], instruction[20], instruction[30:21],1'b0}; imm_type = 0;
-            default: immediate_output = 21'b0; imm_type = 0; 
+            7'b0010011, 7'b0000011, 7'b1100111: begin 
+                immediate_output = {{9{instruction[31]}},instruction[31:20]}; 
+                imm_type = 0; 
+            end    
+            7'b0010111, 7'b0110111: begin 
+                immediate_output = {instruction[31:12], 1'b0}; 
+                imm_type = 1;
+            end
+            7'b0100011: begin 
+                immediate_output = {{9{instruction[31]}}, instruction[31:25], instruction[11:7]}; 
+                imm_type = 0;
+            end
+            7'b1100011: begin 
+                immediate_output = {{8{instruction[31]}}, instruction[31], instruction[7], instruction[30:25], instruction[11:8],1'b0}; 
+                imm_type = 0;
+            end
+            7'b1101111: begin 
+                immediate_output = {instruction[31], instruction[19:12], instruction[20], instruction[30:21],1'b0}; 
+                imm_type = 0; 
+            end
+            default: begin 
+                immediate_output = 21'b0; 
+                imm_type = 0; 
+            end
         endcase
     end
 endmodule

@@ -1,4 +1,4 @@
-module moduleName #(
+module InstructionMemory #(
     parameter XLEN = 32,
     parameter MEM_ROWS = 100
 ) 
@@ -14,7 +14,7 @@ module moduleName #(
         $readmemh(mem_file_path, IM);
     end
 
-    always_ff (@posedge CLK) begin
+    always_ff @(posedge CLK) begin
         instr_1 <= IM[instr1_addr];
         instr_2 <= IM[instr2_addr];
     end

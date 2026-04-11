@@ -5,9 +5,10 @@ module ID_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3,
     parameter INIT_IMMEDIATE_SIZE = 21,
-    parameter BIQ_ADDRESS = 5,
+    parameter BIQ_ADDRESS = 5
 ) (
-    input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken1, if_pred_taken2, if_btb_hit1, if_btb_hit2,
+    input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken1, if_pred_taken2, 
+    input logic if_valid1, if_valid2, if_btb_hit1, if_btb_hit2,
     input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target1, if_pred_target2, 
     input logic [XLEN-3:0] if_pc,
     input logic [BIQ_ADDRESS-1:0] rr_biq_id,
@@ -17,14 +18,14 @@ module ID_Stage #(
     input logic [GHR_SIZE-1:0] if_prev_ghr,
     output logic [RAS_ADDRESS-1:0] id_biq_sp_snap,
     output logic [2*XLEN-1:0] id_biq_ras_snap,
-    output logic stall_frontend, id_take_snap,
+    output logic stall_frontend, id_take_snap, id_valid1, id_valid2,
     output logic [2:0] id_funct3_1, id_funct3_2,
     output logic [6:0] id_funct7_1, id_funct7_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
     output logic [BIQ_ADDRESS-1:0] id_biq_address,
     output logic [XLEN-1:0] id_biq_pred_target, 
     output logic [XLEN-3:0] id_pc,
-    output logic [1:0] id_alu_op1, id_alu_op2,
+    output logic [2:0] id_alu_op1, id_alu_op2,
     output logic [GHR_SIZE-1:0] id_biq_restore_ghr, 
     output logic [PHT_ADDRESS-1:0] id_biq_pht_index,
     output logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
@@ -35,7 +36,7 @@ module ID_Stage #(
     logic [OPCODE_SIZE-1:0] opcode_1, opcode_2; 
     logic [2:0] funct3_1, funct3_2;
     logic [6:0] funct7_1, funct7_2;
-    logic [1:0] ALUOp_1, ALUOp_2;
+    logic [2:0] ALUOp_1, ALUOp_2;
     logic [INIT_IMMEDIATE_SIZE-1:0] imm_out1, imm_out2;
     logic is_control_flow_instr1, is_control_flow_instr2, pred_valid1, pred_valid2;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
@@ -44,13 +45,15 @@ module ID_Stage #(
     
     assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
     assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
-    assign is_control_flow_instr1 = (Branch_1 || Jump_1);
-    assign is_control_flow_instr2 = (Branch_2 || Jump_2);
+    assign is_control_flow_instr1 = (Branch_1 || Jump_1) && if_valid1;
+    assign is_control_flow_instr2 = (Branch_2 || Jump_2) && if_valid2;
     assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit1);
     assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
 
     always_ff @(posedge CLK) begin 
         id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
+        id_valid1 <= (~flush && if_valid1); 
+        id_valid2 <= (~flush && if_valid2); 
         id_pc <= if_pc;
         id_funct3_1 <= if_instr1[14:12];
         id_funct3_2 <= if_instr2[14:12];
