@@ -57,8 +57,8 @@ module ID_Stage #(
             id_take_snap <= 0;
         end
         else if (!stall_frontend) begin
-            id_valid1 <= (~flush && if_valid1); 
-            id_valid2 <= (~flush && if_valid2); 
+            id_valid1 <= (!flush && if_valid1); 
+            id_valid2 <= (!flush && if_valid2); 
             id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
             id_pc <= if_pc;
             id_funct3_1 <= if_instr1[14:12];

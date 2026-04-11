@@ -31,8 +31,8 @@ module IF_Stage #(
             if_valid2 <= 0;
         end
         else if(!stall_frontend) begin
-            if_valid1 <= (~flush && pd_valid1);
-            if_valid2 <= (~flush && pd_valid2);  
+            if_valid1 <= (!flush && pd_valid1);
+            if_valid2 <= (!flush && pd_valid2);  
             if_pred_taken1 <= pd_pred_taken1;
             if_pred_taken2 <= pd_pred_taken2;
             if_btb_hit1 <= pd_btb_hit1;
@@ -49,6 +49,7 @@ module IF_Stage #(
     end
 
     InstructionMemory im_instantiation (
+        .CLK            (CLK),
         .instr1_addr    (instr1_addr),
         .instr2_addr    (instr2_addr),
         .instr_1        (if_instr1),

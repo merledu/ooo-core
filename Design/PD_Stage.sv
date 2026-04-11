@@ -48,8 +48,8 @@ module PD_Stage #(
             pd_valid2 <= 0;
         end
         else if (!stall_frontend) begin
-            pd_valid1 <= ~mispredict;
-            pd_valid2 <= ~mispredict && (~btb_hit1 || ~pred_taken1);
+            pd_valid1 <= !mispredict;
+            pd_valid2 <= !mispredict && (!btb_hit1 || !pred_taken1);
             pd_pht_index1 <= pht_index1;
             pd_pht_index2 <= pht_index2;
             pd_pred_target1 <= final_pred_target1;
@@ -61,6 +61,7 @@ module PD_Stage #(
         //inputs 
         .CLK            (CLK),
         .reset          (reset),
+        .stall_frontend (stall_frontend),
         .restore_ghr    (restore_ghr),
         .actual_taken   (actual_taken),
         .pred_taken1    (pred_taken1),
@@ -78,6 +79,7 @@ module PD_Stage #(
         .CLK                    (CLK),
         .reset                  (reset),
         .mispredict             (mispredict),
+        .stall_frontend         (stall_frontend),
         .btb_hit1               (btb_hit1),
         .btb_hit2               (btb_hit2),
         .is_ret1                (is_ret1),
@@ -139,6 +141,7 @@ module PD_Stage #(
         //inputs
         .CLK                     (CLK),
         .reset                   (reset),
+        .stall_frontend          (stall_frontend),
         .update_ras              (update_ras),
         .restore_ras             (restore_ras),
         .rb_sp_snap              (rb_sp_snap),
