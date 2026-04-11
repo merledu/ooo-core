@@ -4,7 +4,7 @@ module PD_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3
 )(
-    input logic CLK, reset, actual_taken, mispredict, restore_ghr, restore_ras, update_pht, 
+    input logic CLK, reset, stall_frontend, actual_taken, mispredict, restore_ghr, restore_ras, update_pht, 
     input logic update_btb, update_ras, ex_is_ret, ex_is_branch,
     input logic [XLEN-1:0] actual_target_address, actual_return_address, ex_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
@@ -31,7 +31,7 @@ module PD_Stage #(
     logic [XLEN-1:0] write_pc_data, next_pc, pc1, pc2;
 
     assign pc1 = pd_pc;
-    assign pc2 = pd_pc+4;
+    assign pc2 = pd_pc + 4;
     assign pht_index1 = ghr_out ^ pc1[PHT_ADDRESS+1:2];
     assign pht_index2 = ghr_out ^ pc2[PHT_ADDRESS+1:2];
     assign pd_pred_taken1 = pred_taken1;
@@ -43,13 +43,19 @@ module PD_Stage #(
     assign pd_ras_snap = ras_snap;
     
     always_ff @( posedge CLK ) begin 
-        pd_valid1 <= ~mispredict;
-        pd_valid2 <= ~mispredict && (~btb_hit1 || ~pred_taken1);
-        pd_pht_index1 <= pht_index1;
-        pd_pht_index2 <= pht_index2;
-        pd_pred_target1 <= final_pred_target1;
-        pd_pred_target2 <= final_pred_target2;
-        pd_prev_ghr <= prev_ghr;
+        if (reset) begin
+            pd_valid1 <= 0;
+            pd_valid2 <= 0;
+        end
+        else if (!stall_frontend) begin
+            pd_valid1 <= ~mispredict;
+            pd_valid2 <= ~mispredict && (~btb_hit1 || ~pred_taken1);
+            pd_pht_index1 <= pht_index1;
+            pd_pht_index2 <= pht_index2;
+            pd_pred_target1 <= final_pred_target1;
+            pd_pred_target2 <= final_pred_target2;
+            pd_prev_ghr <= prev_ghr;
+        end
     end
     GHR ghr_instantiation(
         //inputs 

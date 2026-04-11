@@ -4,7 +4,7 @@ module IF_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3
 ) (
-    input logic CLK, reset, flush, pd_valid1, pd_valid2,
+    input logic CLK, reset, flush, pd_valid1, pd_valid2, stall_frontend,
     input logic pd_pred_taken1, pd_pred_taken2, pd_btb_hit1, pd_btb_hit2,
     input logic [XLEN-1:0] pd_pc, pd_pred_target1, pd_pred_target2,
     input logic [PHT_ADDRESS-1:0] pd_pht_index1, pd_pht_index2,
@@ -26,20 +26,26 @@ module IF_Stage #(
     assign instr2_addr = pd_pc[XLEN-1:2] + 1;
 
     always_ff @(posedge CLK) begin
-        if_valid1 <= (~flush && pd_valid1);
-        if_valid2 <= (~flush && pd_valid2);  
-        if_pred_taken1 <= pd_pred_taken1;
-        if_pred_taken2 <= pd_pred_taken2;
-        if_btb_hit1 <= pd_btb_hit1;
-        if_btb_hit2 <= pd_btb_hit2;
-        if_pc <= instr1_addr;
-        if_pred_target1 <= pd_pred_target1;
-        if_pred_target2 <= pd_pred_target2;
-        if_pht_index1 <= pd_pht_index1;
-        if_pht_index2 <= pd_pht_index2;
-        if_sp_snap <= pd_sp_snap;
-        if_ras_snap <= pd_ras_snap;
-        if_prev_ghr <= pd_prev_ghr;
+        if (reset) begin
+            if_valid1 <= 0;
+            if_valid2 <= 0;
+        end
+        else if(!stall_frontend) begin
+            if_valid1 <= (~flush && pd_valid1);
+            if_valid2 <= (~flush && pd_valid2);  
+            if_pred_taken1 <= pd_pred_taken1;
+            if_pred_taken2 <= pd_pred_taken2;
+            if_btb_hit1 <= pd_btb_hit1;
+            if_btb_hit2 <= pd_btb_hit2;
+            if_pc <= instr1_addr;
+            if_pred_target1 <= pd_pred_target1;
+            if_pred_target2 <= pd_pred_target2;
+            if_pht_index1 <= pd_pht_index1;
+            if_pht_index2 <= pd_pht_index2;
+            if_sp_snap <= pd_sp_snap;
+            if_ras_snap <= pd_ras_snap;
+            if_prev_ghr <= pd_prev_ghr;
+        end
     end
 
     InstructionMemory im_instantiation (

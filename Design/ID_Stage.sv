@@ -51,42 +51,50 @@ module ID_Stage #(
     assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
 
     always_ff @(posedge CLK) begin 
-        id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
-        id_valid1 <= (~flush && if_valid1); 
-        id_valid2 <= (~flush && if_valid2); 
-        id_pc <= if_pc;
-        id_funct3_1 <= if_instr1[14:12];
-        id_funct3_2 <= if_instr2[14:12];
-        id_funct7_1 <= if_instr1[31:25];
-        id_funct7_2 <= if_instr2[31:25]; 
-        id_alu_op1 <= ALUOp_1;
-        id_alu_op2 <= ALUOp_2;
-        id_jump_reg1 <= JumpReg_1;
-        id_jump_reg2 <= JumpReg_2;
-        id_jump1 <= Jump_1;
-        id_jump2 <= Jump_2;
-        id_branch1 <= Branch_1;
-        id_branch2 <= Branch_2;
-        id_regsrc1_1 <= RegSrc1_1;
-        id_regsrc2_1 <= RegSrc2_1;
-        id_regsrc1_2 <= RegSrc1_2;
-        id_regsrc2_2 <= RegSrc2_2;
-        id_upperimm1 <= UpperImm_1;
-        id_upperimm2 <= UpperImm_2;
-        id_regwrite1 <= RegWrite_1;
-        id_regwrite2 <= RegWrite_2;
-        id_memwrite1 <= MemWrite_1;
-        id_memwrite2 <= MemWrite_2;
-        id_memtoreg1 <= MemToReg_1;
-        id_memtoreg2 <= MemToReg_2;
-        id_retaddr1 <= RetAddr_1;
-        id_retaddr2 <= RetAddr_2;
-        id_isimm1 <= Imm_1;
-        id_isimm2 <= Imm_2; 
-        id_immout1 <= imm_out1;
-        id_immout2 <= imm_out2;
-        id_immtype1 <= imm_type1;
-        id_immtype2 <= imm_type2;
+        if (reset) begin
+            id_valid1 <= 0;
+            id_valid2 <= 0;
+            id_take_snap <= 0;
+        end
+        else if (!stall_frontend) begin
+            id_valid1 <= (~flush && if_valid1); 
+            id_valid2 <= (~flush && if_valid2); 
+            id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
+            id_pc <= if_pc;
+            id_funct3_1 <= if_instr1[14:12];
+            id_funct3_2 <= if_instr2[14:12];
+            id_funct7_1 <= if_instr1[31:25];
+            id_funct7_2 <= if_instr2[31:25]; 
+            id_alu_op1 <= ALUOp_1;
+            id_alu_op2 <= ALUOp_2;
+            id_jump_reg1 <= JumpReg_1;
+            id_jump_reg2 <= JumpReg_2;
+            id_jump1 <= Jump_1;
+            id_jump2 <= Jump_2;
+            id_branch1 <= Branch_1;
+            id_branch2 <= Branch_2;
+            id_regsrc1_1 <= RegSrc1_1;
+            id_regsrc2_1 <= RegSrc2_1;
+            id_regsrc1_2 <= RegSrc1_2;
+            id_regsrc2_2 <= RegSrc2_2;
+            id_upperimm1 <= UpperImm_1;
+            id_upperimm2 <= UpperImm_2;
+            id_regwrite1 <= RegWrite_1;
+            id_regwrite2 <= RegWrite_2;
+            id_memwrite1 <= MemWrite_1;
+            id_memwrite2 <= MemWrite_2;
+            id_memtoreg1 <= MemToReg_1;
+            id_memtoreg2 <= MemToReg_2;
+            id_retaddr1 <= RetAddr_1;
+            id_retaddr2 <= RetAddr_2;
+            id_isimm1 <= Imm_1;
+            id_isimm2 <= Imm_2; 
+            id_immout1 <= imm_out1;
+            id_immout2 <= imm_out2;
+            id_immtype1 <= imm_type1;
+            id_immtype2 <= imm_type2;
+        end
+        
     end
 
     CU cu_instantiation1 (
