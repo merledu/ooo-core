@@ -45,8 +45,8 @@ module ID_Stage #(
     
     assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
     assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
-    assign is_control_flow_instr1 = (Branch_1 || Jump_1) && if_valid1;
-    assign is_control_flow_instr2 = (Branch_2 || Jump_2) && if_valid2;
+    assign is_control_flow_instr1 = (Branch_1 || Jump_1) && if_valid1 && !stall_frontend;
+    assign is_control_flow_instr2 = (Branch_2 || Jump_2) && if_valid2 && !stall_frontend;
     assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit1);
     assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
 
