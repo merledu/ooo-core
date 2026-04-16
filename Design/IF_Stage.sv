@@ -50,8 +50,8 @@ module IF_Stage #(
 
     InstructionMemory im_instantiation (
         .CLK            (CLK),
-        .instr1_addr    (instr1_addr),
-        .instr2_addr    (instr2_addr),
+        .instr1_addr    ({2'b00, instr1_addr}),
+        .instr2_addr    ({2'b00, instr2_addr}),
         .instr_1        (if_instr1),
         .instr_2        (if_instr2)
     );

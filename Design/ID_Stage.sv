@@ -21,6 +21,8 @@ module ID_Stage #(
     output logic stall_frontend, id_take_snap, id_valid1, id_valid2,
     output logic [2:0] id_funct3_1, id_funct3_2,
     output logic [6:0] id_funct7_1, id_funct7_2,
+    output logic [4:0] id_rs1_1, id_rs2_1, id_rd_1,
+    output logic [4:0] id_rs1_2, id_rs2_2, id_rd_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
     output logic [BIQ_ADDRESS-1:0] id_biq_address,
     output logic [XLEN-1:0] id_biq_pred_target, 
@@ -61,10 +63,21 @@ module ID_Stage #(
             id_valid2 <= (!flush && if_valid2); 
             id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
             id_pc <= if_pc;
+            
             id_funct3_1 <= if_instr1[14:12];
             id_funct3_2 <= if_instr2[14:12];
+
             id_funct7_1 <= if_instr1[31:25];
             id_funct7_2 <= if_instr2[31:25]; 
+
+            id_rs1_1 <= if_instr1[19:15];
+            id_rs2_1 <= if_instr1[24:20];
+            id_rd_1  <= if_instr1[11:7];
+
+            id_rs1_2 <= if_instr2[19:15];
+            id_rs2_2 <= if_instr2[24:20];
+            id_rd_2  <= if_instr2[11:7];
+
             id_alu_op1 <= ALUOp_1;
             id_alu_op2 <= ALUOp_2; 
             id_jump_reg1 <= JumpReg_1;

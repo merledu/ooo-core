@@ -8,7 +8,7 @@ module InstructionMemory #(
     output logic [XLEN-1:0] instr_1, instr_2
 );
     
-    logic [XLEN-1:0] IM [0:MEM_ROWS-1];
+    (* ram_style = "block" *) logic [XLEN-1:0] IM [0:MEM_ROWS-1];
 
     initial begin   
         $readmemh("instructions.hex", IM);
