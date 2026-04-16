@@ -42,11 +42,23 @@ module RMT #(
             end
             busy_table <= 0;
         end
-        else if (restore_rmt) begin
-            RMT <= bs_rmt_snap;
-            busy_table <= bs_busy_table_snap;
-        end
+        
         else begin
+            if (restore_rmt) begin
+                RMT <= bs_rmt_snap;
+                busy_table <= bs_busy_table_snap;
+            end
+            else begin
+                //updating Rename Map Table
+                if (reg_write1 && (rd1 != 5'b0)) begin
+                    RMT[rd1] <= freed_reg1;
+                    busy_table[freed_reg1] <= 1;      
+                end
+                if (reg_write2 && (rd2 != 5'b0)) begin
+                    RMT[rd2] <= freed_reg2;
+                    busy_table[freed_reg2] <= 1;   
+                end
+            end
             //updating busy table from CDB
             if (wakeup1 && (waked_reg1 != '0)) begin
                 busy_table[waked_reg1] <= 0;
@@ -55,16 +67,7 @@ module RMT #(
                 busy_table[waked_reg2] <= 0;
             end
             
-            //updating Rename Map Table
-
-            if (reg_write1 && (rd1 != 5'b0)) begin
-                RMT[rd1] <= freed_reg1;
-                busy_table[freed_reg1] <= 1;      
-            end
-            if (reg_write2 && (rd2 != 5'b0)) begin
-                RMT[rd2] <= freed_reg2;
-                busy_table[freed_reg2] <= 1;   
-            end
+            
             //renaming instruction1
             
             prd1 <= (rd1!= 5'b0)? freed_reg1 : '0;
