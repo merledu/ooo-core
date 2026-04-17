@@ -5,7 +5,7 @@ module RMT #(
     input logic CLK, reset, restore_rmt, reg_write1, reg_write2, cdb_wakeup1, cdb_wakeup2,
     input logic [4:0] rd1, rs1_1, rs2_1,
     input logic [4:0] rd2, rs1_2, rs2_2,
-    input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, waked_reg1, waked_reg2,
+    input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] bs_rmt_snap [0:31],
     input logic [NUM_PHY_REG-1:0] bs_busy_table_snap,
     output logic prs1_busy1, prs2_busy1, prs1_busy2, prs2_busy2,
@@ -22,17 +22,17 @@ module RMT #(
     assign busy_table_snap = busy_table;
     assign rmt_snap = RMT;
 
-    assign wake_rs1_1 = (((waked_reg1 != '0) && cdb_wakeup1 && (waked_reg1 == RMT[rs1_1])) ||
-                         ((waked_reg2 != '0) && cdb_wakeup2 && (waked_reg2 == RMT[rs1_1])));
+    assign wake_rs1_1 = (((cdb_waked_reg1 != '0) && cdb_wakeup1 && (cdb_waked_reg1 == RMT[rs1_1])) ||
+                         ((cdb_waked_reg2 != '0) && cdb_wakeup2 && (cdb_waked_reg2 == RMT[rs1_1])));
 
-    assign wake_rs2_1 = (((waked_reg1 != '0) && cdb_wakeup1 && (waked_reg1 == RMT[rs2_1])) ||
-                         ((waked_reg2 != '0) && cdb_wakeup2 && (waked_reg2 == RMT[rs2_1]))); 
+    assign wake_rs2_1 = (((cdb_waked_reg1 != '0) && cdb_wakeup1 && (cdb_waked_reg1 == RMT[rs2_1])) ||
+                         ((cdb_waked_reg2 != '0) && cdb_wakeup2 && (cdb_waked_reg2 == RMT[rs2_1]))); 
 
-    assign wake_rs1_2 = (((waked_reg1 != '0) && cdb_wakeup1 && (waked_reg1 == RMT[rs1_2])) ||
-                         ((waked_reg2 != '0) && cdb_wakeup2 && (waked_reg2 == RMT[rs1_2])));
+    assign wake_rs1_2 = (((cdb_waked_reg1 != '0) && cdb_wakeup1 && (cdb_waked_reg1 == RMT[rs1_2])) ||
+                         ((cdb_waked_reg2 != '0) && cdb_wakeup2 && (cdb_waked_reg2 == RMT[rs1_2])));
 
-    assign wake_rs2_2 = (((waked_reg1 != '0) && cdb_wakeup1 && (waked_reg1 == RMT[rs2_2])) ||
-                         ((waked_reg2 != '0) && cdb_wakeup2 && (waked_reg2 == RMT[rs2_2]))); 
+    assign wake_rs2_2 = (((cdb_waked_reg1 != '0) && cdb_wakeup1 && (cdb_waked_reg1 == RMT[rs2_2])) ||
+                         ((cdb_waked_reg2 != '0) && cdb_wakeup2 && (cdb_waked_reg2 == RMT[rs2_2]))); 
 
     always_ff @(posedge CLK) begin
 
@@ -63,11 +63,11 @@ module RMT #(
                 end
             end
             //updating busy table from CDB
-            if (cdb_wakeup1 && (waked_reg1 != '0)) begin
-                busy_table[waked_reg1] <= 0;
+            if (cdb_wakeup1 && (cdb_waked_reg1 != '0)) begin
+                busy_table[cdb_waked_reg1] <= 0;
             end
-            if (cdb_wakeup2 && (waked_reg2 != '0)) begin
-                busy_table[waked_reg2] <= 0;
+            if (cdb_wakeup2 && (cdb_waked_reg2 != '0)) begin
+                busy_table[cdb_waked_reg2] <= 0;
             end
             
             
