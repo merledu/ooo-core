@@ -1,4 +1,4 @@
-module InstructionMemory #(
+module IM #(
     parameter XLEN = 32,
     parameter MEM_ROWS = 100
 ) 
