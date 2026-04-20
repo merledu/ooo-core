@@ -4,8 +4,8 @@ module PD_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3
 )(
-    input logic CLK, reset, stall_frontend, actual_taken, mispredict, restore_ghr, restore_ras, update_pht, 
-    input logic update_btb, update_ras, ex_is_ret, ex_is_branch,
+    input logic CLK, reset, stall_frontend, actual_taken, restore_ghr, restore_ras, update_pht, 
+    input logic update_btb, update_ras, ex_is_ret, ex_is_branch, mispredict, //mispredict = flush(from ex)
     input logic [XLEN-1:0] actual_target_address, actual_return_address, ex_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
     input logic [PHT_ADDRESS-1:0] rb_pht_index,
