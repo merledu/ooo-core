@@ -3,7 +3,7 @@ module RAS #(
     parameter XLEN = 32,
     parameter RAS_LEN = (1<<RAS_ADDRESS)
 ) (
-    input logic CLK, reset, update_ras, restore_ras, btb_is_ret1, btb_is_ret2,
+    input logic CLK, reset, stall_frontend, update_ras, restore_ras, btb_is_ret1, btb_is_ret2,
     input logic [XLEN-1:0] actual_return_address, 
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
@@ -35,7 +35,7 @@ module RAS #(
             RAS[rb_sp_snap-1] <= rb_ras_snap[XLEN-1:0];
             RAS[rb_sp_snap-2] <= rb_ras_snap[2*XLEN-1:XLEN];
         end
-        else if (push || pop) begin
+        else if (!stall_frontend && (push || pop)) begin
             sp_snap <= sp;
             ras_snap <= {RAS[sp-2], RAS[sp-1]};
             sp <= next_sp;

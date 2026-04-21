@@ -4,13 +4,14 @@ module PD_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3
 )(
-    input logic CLK, reset, actual_taken, mispredict, restore_ghr, restore_ras, update_pht, update_btb, update_ras, ex_is_ret, ex_is_branch,
+    input logic CLK, reset, stall_frontend, actual_taken, restore_ghr, restore_ras, update_pht, 
+    input logic update_btb, update_ras, ex_is_ret, ex_is_branch, mispredict, //mispredict = flush(from ex)
     input logic [XLEN-1:0] actual_target_address, actual_return_address, ex_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
     input logic [PHT_ADDRESS-1:0] rb_pht_index,
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
-    output logic pd_pred_taken1, pd_pred_taken2, pd_btb_hit1, pd_btb_hit2,
+    output logic pd_pred_taken1, pd_pred_taken2, pd_btb_hit1, pd_btb_hit2, pd_valid1, pd_valid2,
     output logic [XLEN-1:0] pd_pc, pd_pred_target1, pd_pred_target2,
     output logic [PHT_ADDRESS-1:0] pd_pht_index1, pd_pht_index2,
     output logic [RAS_ADDRESS-1:0] pd_sp_snap,
@@ -30,7 +31,7 @@ module PD_Stage #(
     logic [XLEN-1:0] write_pc_data, next_pc, pc1, pc2;
 
     assign pc1 = pd_pc;
-    assign pc2 = pd_pc+4;
+    assign pc2 = pd_pc + 4;
     assign pht_index1 = ghr_out ^ pc1[PHT_ADDRESS+1:2];
     assign pht_index2 = ghr_out ^ pc2[PHT_ADDRESS+1:2];
     assign pd_pred_taken1 = pred_taken1;
@@ -42,16 +43,25 @@ module PD_Stage #(
     assign pd_ras_snap = ras_snap;
     
     always_ff @( posedge CLK ) begin 
-        pd_pht_index1 <= pht_index1;
-        pd_pht_index2 <= pht_index2;
-        pd_pred_target1 <= final_pred_target1;
-        pd_pred_target2 <= final_pred_target2;
-        pd_prev_ghr <= prev_ghr;
+        if (reset) begin
+            pd_valid1 <= 0;
+            pd_valid2 <= 0;
+        end
+        else if (!stall_frontend) begin
+            pd_valid1 <= !mispredict;
+            pd_valid2 <= !mispredict && (!btb_hit1 || !pred_taken1);
+            pd_pht_index1 <= pht_index1;
+            pd_pht_index2 <= pht_index2;
+            pd_pred_target1 <= final_pred_target1;
+            pd_pred_target2 <= final_pred_target2;
+            pd_prev_ghr <= prev_ghr;
+        end
     end
     GHR ghr_instantiation(
         //inputs 
         .CLK            (CLK),
         .reset          (reset),
+        .stall_frontend (stall_frontend),
         .restore_ghr    (restore_ghr),
         .actual_taken   (actual_taken),
         .pred_taken1    (pred_taken1),
@@ -69,6 +79,7 @@ module PD_Stage #(
         .CLK                    (CLK),
         .reset                  (reset),
         .mispredict             (mispredict),
+        .stall_frontend         (stall_frontend),
         .btb_hit1               (btb_hit1),
         .btb_hit2               (btb_hit2),
         .is_ret1                (is_ret1),
@@ -130,6 +141,7 @@ module PD_Stage #(
         //inputs
         .CLK                     (CLK),
         .reset                   (reset),
+        .stall_frontend          (stall_frontend),
         .update_ras              (update_ras),
         .restore_ras             (restore_ras),
         .rb_sp_snap              (rb_sp_snap),

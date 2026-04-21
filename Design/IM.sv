@@ -1,4 +1,4 @@
-module moduleName #(
+module IM #(
     parameter XLEN = 32,
     parameter MEM_ROWS = 100
 ) 
@@ -8,13 +8,13 @@ module moduleName #(
     output logic [XLEN-1:0] instr_1, instr_2
 );
     
-    logic [XLEN-1:0] IM [0:MEM_ROWS-1];
+    (* ram_style = "block" *) logic [XLEN-1:0] IM [0:MEM_ROWS-1];
 
     initial begin   
-        $readmemh(mem_file_path, IM);
+        $readmemh("instructions.hex", IM);
     end
 
-    always_ff (@posedge CLK) begin
+    always_ff @(posedge CLK) begin
         instr_1 <= IM[instr1_addr];
         instr_2 <= IM[instr2_addr];
     end

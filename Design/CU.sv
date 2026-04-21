@@ -3,7 +3,7 @@ module CU #(
 ) (
     input logic [OPCODE_SIZE-1:0] opcode, 
     output logic [2:0] ALUOp,
-    output logic JumpReg, Jump, Branch, RegSrc1, RegSrc2, UpperImm, RegWrite, MemWrite, MemToReg, RetAddr, imm, 
+    output logic JumpReg, Jump, Branch, RegSrc1, RegSrc2, UpperImm, RegWrite, MemWrite, MemToReg, RetAddr, imm 
 );
    
     always_comb begin

@@ -58,9 +58,9 @@ module BTB #(
         btb_hit2 = btb_entry2.valid && tag_matched2;
         pred_target1 = btb_entry1.target_address;
         pred_target2 = btb_entry2.target_address;
-        is_ret1 = tag_matched1 && btb_entry1.valid && btb_entry1.is_ret;
-        is_ret2 = tag_matched2 && btb_entry2.valid && btb_entry2.is_ret;
-        is_branch1 = tag_matched1 && btb_entry1.valid && btb_entry1.is_branch;
-        is_branch2 = tag_matched2 && btb_entry2.valid && btb_entry2.is_branch;
+        is_ret1 =  btb_hit1 && btb_entry1.is_ret;
+        is_ret2 = btb_hit2 && btb_entry2.is_ret;
+        is_branch1 = btb_hit1 && btb_entry1.is_branch;
+        is_branch2 = btb_hit2 && btb_entry2.is_branch;
     end
 endmodule

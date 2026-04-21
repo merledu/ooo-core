@@ -2,7 +2,7 @@
 module PC #(
     parameter XLEN = 32    
 )(  
-    input logic CLK, reset, mispredict, btb_hit1, btb_hit2, is_ret1, is_ret2, is_branch1, is_branch2, pred_taken1, pred_taken2,
+    input logic CLK, reset, stall_frontend, mispredict, btb_hit1, btb_hit2, is_ret1, is_ret2, is_branch1, is_branch2, pred_taken1, pred_taken2,
     input logic [XLEN-1:0] pred_target1, pred_target2, ret_addr1, ret_addr2, actual_target_address, 
     output logic [XLEN-1:0] pc, write_pc_data, next_pc, final_pred_target1, final_pred_target2
 );
@@ -39,7 +39,7 @@ module PC #(
         else if (mispredict) begin
             pc <= write_pc_data;
         end
-        else begin
+        else if (!stall_frontend) begin
             pc <= next_pc;
         end
     end
