@@ -1,6 +1,7 @@
 module FL #(
     parameter PRF_ADDRESS = 6,
-    parameter FL_ROWS = (1 << PRF_ADDRESS) - 32,
+    parameter NUM_PHY_REG = 1 << PRF_ADDRESS,
+    parameter FL_ROWS = NUM_PHY_REG - 32,
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (

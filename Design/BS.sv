@@ -28,10 +28,13 @@ module BS #(
     logic [BTAG_SIZE-1:0] current_btag;
 
     always_comb begin
-        if      (!BMR[0]) current_btag = 2'b00;
-        else if (!BMR[1]) current_btag = 2'b01;
-        else if (!BMR[2]) current_btag = 2'b10;
-        else              current_btag = 2'b11;
+        current_btag = '0;
+        for (int i = 0; i < MAX_BRANCHES; i++) begin
+            if (!BMR[i]) begin
+                current_btag = i;
+                break;
+            end
+        end
     end
     //to dispatch stage
     assign bs_branch_tag = current_btag;
