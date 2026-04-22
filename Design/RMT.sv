@@ -7,19 +7,16 @@ module RMT #(
     input logic [4:0] rd2, rs1_2, rs2_2,
     input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] bs_rmt_snap [0:31],
-    input logic [NUM_PHY_REG-1:0] bs_busy_table_snap,
     output logic prs1_busy1, prs2_busy1, prs1_busy2, prs2_busy2,
     output logic [PRF_ADDRESS-1:0] prd1, prs1_1, prs2_1,
     output logic [PRF_ADDRESS-1:0] prd2, prs1_2, prs2_2,
-    output logic [PRF_ADDRESS-1:0] rmt_snap [0:31],
-    output logic [NUM_PHY_REG-1:0] busy_table_snap
+    output logic [PRF_ADDRESS-1:0] rmt_snap [0:31]
 );
     logic [PRF_ADDRESS-1:0] RMT [0:31];
     logic [NUM_PHY_REG-1:0] busy_table;
 
     logic wake_rs1_1, wake_rs1_2, wake_rs2_1, wake_rs2_2;
 
-    assign busy_table_snap = busy_table;
     assign rmt_snap = RMT;
 
     assign wake_rs1_1 = (((cdb_waked_reg1 != '0) && cdb_wakeup1 && (cdb_waked_reg1 == RMT[rs1_1])) ||
@@ -49,7 +46,6 @@ module RMT #(
         else begin
             if (restore_rmt) begin
                 RMT <= bs_rmt_snap;
-                busy_table <= bs_busy_table_snap;
             end
             else begin
                 //updating Rename Map Table
