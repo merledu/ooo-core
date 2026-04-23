@@ -30,7 +30,8 @@ module RN_Stage #(
     input logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
     input logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2,
     output logic stall_frontend,
-    output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_prd2, rn_prs1_2, rn_prs2_2,             
+    output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_old_prd1, 
+    output logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2, rn_old_prd2,             
     output logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
     output logic [BTAG_SIZE-1:0] rn_branch_tag,
     output logic [MAX_BRANCHES-1:0] rn_branch_mask,
@@ -54,7 +55,7 @@ module RN_Stage #(
     logic [FL_PTR_WIDTH-1:0] fl_head_ptr, bs_head_ptr_snap;
     logic [PRF_ADDRESS-1:0] routed_freed_reg1, routed_freed_reg2;
 
-    logic pop1, pop2;
+    logic pop1, pop2, bs_full, fl_empty;
 
     assign pop1 = id_valid1 && id_regwrite1 && (id_rd_1 != 5'b0);
     assign pop2 = id_valid2 && id_regwrite2 && (id_rd_2 != 5'b0);
@@ -107,11 +108,15 @@ module RN_Stage #(
         .CLK                (CLK),
         .reset              (reset),
         .restore_rmt        (flush),
-
-        .reg_write1         (id_regwrite1),
-        .reg_write2         (id_regwrite2),
+        .stall_frontend     (stall_frontend),
+        .reg_write1         (id_regwrite1 && id_valid1), 
+        .reg_write2         (id_regwrite2 && id_valid2),
+        .id_valid1          (id_valid1),
+        .id_valid2          (id_valid2),
         .cdb_wakeup1        (cdb_wakeup1),
         .cdb_wakeup2        (cdb_wakeup2),
+        .id_branch1         (id_branch1),
+        .id_jump1           (id_jump1),
 
         .rd1                (id_rd_1),
         .rs1_1              (id_rs1_1),
@@ -129,12 +134,14 @@ module RN_Stage #(
         .bs_rmt_snap        (bs_rmt_snap),
         
         .prd1               (rn_prd1),
+        .old_prd1           (rn_old_prd1),
         .prs1_1             (rn_prs1_1),
         .prs2_1             (rn_prs2_1),
         .prs1_busy1         (rn_prs1_busy1),
         .prs2_busy1         (rn_prs2_busy1),
         
         .prd2               (rn_prd2),
+        .old_prd2           (rn_old_prd2),
         .prs1_2             (rn_prs1_2),
         .prs2_2             (rn_prs2_2),
         .prs1_busy2         (rn_prs1_busy2),
@@ -150,8 +157,11 @@ module RN_Stage #(
         .stall_frontend     (stall_frontend),
         .pop1               (pop1),
         .pop2               (pop2),
-        .bs_head_ptr_snap   (bs_head_ptr_snap),  
-
+        .id_branch1         (id_branch1),
+        .id_jump1           (id_jump1),
+        .id_valid1          (id_valid1),
+        .bs_head_ptr_snap   (bs_head_ptr_snap), 
+        
         .push1              (comm_free_push1),
         .push2              (comm_free_push2),
         .comm_free_reg1     (comm_free_reg1),     
@@ -160,7 +170,7 @@ module RN_Stage #(
         .fl_head_ptr        (fl_head_ptr),        
         .fl_freed_reg1      (fl_freed_reg1),      
         .fl_freed_reg2      (fl_freed_reg2),      
-        .fl_empty            (fl_empty)    //signal for frontend  
+        .fl_empty           (fl_empty)    //signal for frontend  
 
     );
 
@@ -168,12 +178,18 @@ module RN_Stage #(
         .CLK                    (CLK),
         .reset                  (reset),
         .id_take_snap           (id_take_snap && !stall_frontend && !flush),  //if branch instructions then take snapshot
-
+        .flush                  (flush),
         .rmt_snap               (rmt_snap),           
-        .freelist_head_snap     (fl_head_ptr),        
+        .freelist_head_snap     (fl_head_ptr),   
+        .id_branch1             (id_branch1),
+        .id_jump1               (id_jump1),
+        .id_valid1              (id_valid1),
         //from ex stage to reset branch mask register when branch gets resolved
         .ex_branch_resolved     (ex_branch_resolved), 
         .ex_btag                (ex_btag),
+        //to store the updated mapping of map table
+        .pop1                   (pop1 && !stall_frontend),
+        .pop2                   (pop2 && !stall_frontend),
 
         //output     
         .bs_branch_tag          (rn_branch_tag),      
