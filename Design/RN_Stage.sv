@@ -50,8 +50,7 @@ module RN_Stage #(
     output logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2
 );
     logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2;        
-    logic [PRF_ADDRESS-1:0] bs_rmt_snap [0:31];
-    logic [PRF_ADDRESS-1:0] rmt_snap [0:31];
+    logic [31:0][PRF_ADDRESS-1:0] rmt_snap, bs_rmt_snap;
     logic [FL_PTR_WIDTH-1:0] fl_head_ptr, bs_head_ptr_snap;
     logic [PRF_ADDRESS-1:0] routed_freed_reg1, routed_freed_reg2;
 

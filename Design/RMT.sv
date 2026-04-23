@@ -7,15 +7,16 @@ module RMT #(
     input logic [4:0] rd1, rs1_1, rs2_1,
     input logic [4:0] rd2, rs1_2, rs2_2,
     input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, cdb_waked_reg1, cdb_waked_reg2,
-    input logic [PRF_ADDRESS-1:0] bs_rmt_snap [0:31],
+    input logic [31:0][PRF_ADDRESS-1:0] bs_rmt_snap,
     output logic prs1_busy1, prs2_busy1, prs1_busy2, prs2_busy2,
     output logic [PRF_ADDRESS-1:0] prd1, prs1_1, prs2_1, old_prd1,
     output logic [PRF_ADDRESS-1:0] prd2, prs1_2, prs2_2, old_prd2,
-    output logic [PRF_ADDRESS-1:0] rmt_snap [0:31]
+    output logic [31:0][PRF_ADDRESS-1:0] rmt_snap
 );
-    logic [PRF_ADDRESS-1:0] RMT [0:31];
-    logic [PRF_ADDRESS-1:0] next_RMT [0:31];
-    logic [PRF_ADDRESS-1:0] next_RMT_inst1 [0:31];
+
+   logic [31:0][PRF_ADDRESS-1:0] RMT;
+    logic [31:0][PRF_ADDRESS-1:0] next_RMT;
+    logic [31:0][PRF_ADDRESS-1:0] next_RMT_inst1;
     logic [NUM_PHY_REG-1:0] busy_table;
 
     logic wake_rs1_1, wake_rs1_2, wake_rs2_1, wake_rs2_2;
@@ -62,7 +63,7 @@ module RMT #(
     always_ff @(posedge CLK) begin
         if (reset) begin    
             for (int i = 0; i < 32; i++) begin
-                RMT[i] <= i;          
+                RMT[i] <= PRF_ADDRESS'(i);   
             end
             old_prd1 <= '0;
             old_prd2 <= '0;
