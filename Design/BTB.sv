@@ -1,66 +1,61 @@
-//direct-mapped BTB
+//direct-mapped cache BTB
 module BTB #(
-    parameter BTB_ADDRESS = 6,
+    parameter BTB_ROWS = 64,
     parameter XLEN = 32,
-    parameter TAG_SIZE = XLEN - BTB_ADDRESS - 2
+    parameter BTB_ADDRESS = $clog2(BTB_ROWS),
+    parameter TAG_SIZE = XLEN - BTB_ADDRESS - 3
 ) (
-    input logic CLK, reset, update_btb, ex_is_ret, ex_is_branch,
-    input logic [XLEN-1:0] pc1, pc2, ex_pc,
-    input logic [XLEN-1:0] actual_target_address,
-    output logic btb_hit1, btb_hit2, is_ret1, is_ret2, is_branch1, is_branch2,
-    output logic [XLEN-1:0] pred_target1, pred_target2
+    input logic CLK, reset, if_is_jal1, if_is_jal2, ex_is_taken_branch, ex_is_jalr, ex_is_not_ret,
+    input logic [XLEN-1:0] pd_pc, if_pc, ex_pc, 
+    input logic [XLEN-3:0] ex_target_address, if_target_address1, if_target_address2,
+    output logic btb_hit,
+    output logic [XLEN-1:0] pred_target_address
 );  
+
+    logic [TAG_SIZE-1:0] pd_tag, if_tag, ex_tag;
+    logic [XLEN-3:0] if_target_address;
+    logic [BTB_ADDRESS-1:0] btb_read_address, ex_btb_write_address, if_btb_write_address;
+
     typedef struct packed {
-        logic [TAG_SIZE-1:0] tag;
-        logic [XLEN-1:0] target_address;
-        logic valid;
-        logic is_ret;
-        logic is_branch;
+        logic [TAG_SIZE-1:0] bundled_tag;
+        logic [XLEN-3:0] target_address; //for bundled pc and not storing the 2 bits cuz they are always zero 
+        logic valid; 
     } btb_organization;
 
-    (* ram_style = "block" *) btb_organization BTB [0:(1<<BTB_ADDRESS)-1]; 
-     
-    btb_organization btb_entry1, btb_entry2;
-    logic tag_matched1, tag_matched2;
-
-    //read signals
-    logic [TAG_SIZE-1:0] btb_tag1, btb_tag2, reg_btb_tag1, reg_btb_tag2;
-    logic [BTB_ADDRESS-1:0] btb_index1, btb_index2;
-    //write signals
-    logic [TAG_SIZE-1:0] ex_tag;
-    logic [BTB_ADDRESS-1:0] ex_btb_index;
-
-    assign btb_tag1 = pc1[XLEN-1:BTB_ADDRESS+2];
-    assign btb_tag2 = pc2[XLEN-1:BTB_ADDRESS+2];
-    assign btb_index1 = pc1[BTB_ADDRESS+1:2];
-    assign btb_index2 = pc2[BTB_ADDRESS+1:2];
-
-    assign ex_tag = ex_pc[XLEN-1:BTB_ADDRESS+2];
-    assign ex_btb_index = ex_pc[BTB_ADDRESS+1:2];
-
-    always_ff @(posedge CLK) begin
-        if(update_btb) begin
-            BTB[ex_btb_index].tag <=  ex_tag; 
-            BTB[ex_btb_index].target_address <= actual_target_address;
-            BTB[ex_btb_index].valid <= update_btb;
-            BTB[ex_btb_index].is_ret <= ex_is_ret;
-            BTB[ex_btb_index].is_branch <= ex_is_branch;
-        end
-        btb_entry1 <=  BTB[btb_index1];
-        btb_entry2 <=  BTB[btb_index2];  
-        reg_btb_tag1 <= btb_tag1;
-        reg_btb_tag2 <= btb_tag2;  
-    end
+    btb_organization BTB [0:BTB_ROWS-1]; 
     always_comb begin
-        tag_matched1 = btb_entry1.tag == reg_btb_tag1;
-        tag_matched2 = btb_entry2.tag == reg_btb_tag2;      
-        btb_hit1 = btb_entry1.valid && tag_matched1;
-        btb_hit2 = btb_entry2.valid && tag_matched2;
-        pred_target1 = btb_entry1.target_address;
-        pred_target2 = btb_entry2.target_address;
-        is_ret1 =  btb_hit1 && btb_entry1.is_ret;
-        is_ret2 = btb_hit2 && btb_entry2.is_ret;
-        is_branch1 = btb_hit1 && btb_entry1.is_branch;
-        is_branch2 = btb_hit2 && btb_entry2.is_branch;
+        pd_tag = pd_pc[XLEN-1: BTB_ADDRESS+3];
+        if_tag = if_pc[XLEN-1: BTB_ADDRESS+3];
+        ex_tag = ex_pc[XLEN-1: BTB_ADDRESS+3];
+
+        btb_read_address     = pd_pc[BTB_ADDRESS+2:3];
+        if_btb_write_address = if_pc[BTB_ADDRESS+2:3];
+        ex_btb_write_address = ex_pc[BTB_ADDRESS+2:3];
+
+        if_target_address = (if_is_jal1)? if_target_address1 : if_target_address2;
+    end 
+          
+    always_ff @(posedge CLK) begin
+        //writing btb from ex stage 
+        if(ex_is_taken_branch || ex_is_jalr && ex_is_not_ret) begin
+            BTB[ex_btb_write_address].bundled_tag <=  ex_tag; 
+            BTB[ex_btb_write_address].target_address <= ex_target_address;
+            BTB[ex_btb_write_address].valid <= 1;
+        end
+        //writing btb from fetch stage        
+        if (if_is_jal1 || if_is_jal2) begin
+            BTB[if_btb_write_address].bundled_tag <=  if_tag; 
+            BTB[if_btb_write_address].target_address <= if_target_address;
+            BTB[if_btb_write_address].valid <= 1;
+        end
+        // read btb
+        if (BTB[btb_read_address].valid && BTB[btb_read_address].bundled_tag == pd_tag) begin
+            btb_hit             <= 1;
+            pred_target_address <= {BTB[btb_read_address].target_address, 2'b00};
+        end
+        else begin
+            btb_hit             <= 0;
+        end
     end
+   
 endmodule
