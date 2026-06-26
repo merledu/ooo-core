@@ -13,6 +13,7 @@ module IF_Stage #(
     input logic [GHR_SIZE-1:0] pd_prev_ghr,
 
     output logic if_pred_taken1, if_pred_taken2, if_btb_hit1, if_btb_hit2, if_valid1, if_valid2,
+    output logic [1:0] if_predecode_instr1, if_predecode_instr2,
     output logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target1, if_pred_target2,
     output logic [XLEN-3:0] if_pc,
     output logic [PHT_ADDRESS-1:0] if_pht_index1, if_pht_index2,
@@ -55,4 +56,16 @@ module IF_Stage #(
         .instr_1        (if_instr1),
         .instr_2        (if_instr2)
     );
+
+    PreDecode predecode_instantiation(
+        //input
+        .opcode1            (if_instr1[6:0]),
+        .opcode2            (if_instr2[6:0]),
+        .rd1                (if_instr1[11:7]),
+        .rd2                (if_instr2[11:7]),
+        //output
+        .predecode_instr1   (if_predecode_instr1),
+        .predecode_instr2   (if_predecode_instr2)
+    );
+
 endmodule

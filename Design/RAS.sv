@@ -3,10 +3,13 @@ module RAS #(
     parameter XLEN = 32,
     parameter RAS_LEN = (1<<RAS_ADDRESS)
 ) (
-    input logic CLK, reset, stall_frontend, update_ras, restore_ras, btb_is_ret1, btb_is_ret2,
-    input logic [XLEN-1:0] actual_return_address, 
+    input logic CLK, reset, stall_frontend, restore_ras,
+    input logic [1:0] if_predecode_instr1, if_predecode_instr2,
+    input logic [XLEN-1:0] if_actual_return_address, 
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
+
+    output logic is_return_instr,
     output logic [XLEN-1:0] pred_return_address,
     output logic [RAS_ADDRESS-1:0] sp_snap,
     output logic [2*XLEN-1:0] ras_snap
@@ -15,9 +18,15 @@ module RAS #(
     logic [RAS_ADDRESS-1:0] sp, next_sp;
     logic pop;
     logic push;
+    logic if_is_call1, if_is_call2, if_is_ret1, if_is_ret2;
 
-    assign push = update_ras;
-    assign pop = btb_is_ret1 || btb_is_ret2;
+    assign if_is_call1 = (if_predecode_instr1 ==  2'b10);
+    assign if_is_call2 = (if_predecode_instr2 ==  2'b10);
+    assign if_is_ret1  = (if_predecode_instr1 ==  2'b01);
+    assign if_is_ret2  = (if_predecode_instr2 ==  2'b01);
+    assign push = if_is_call1 || if_is_call2;
+    assign pop  = if_is_ret1 || if_is_ret2;
+    assign is_return_instr = pop;
     assign next_sp =  sp + {2'b00, push} - {2'b00, pop};
 
     always_comb begin
@@ -41,7 +50,7 @@ module RAS #(
             sp <= next_sp;
             //pushing onto the stack 
             if (push) begin
-                RAS[sp] <= actual_return_address; // from the decode
+                RAS[sp] <= if_actual_return_address; // from the IF stage
             end
         end
     end
