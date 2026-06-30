@@ -2,7 +2,7 @@
 module PC #(
     parameter XLEN = 32    
 )(  
-    input logic CLK, reset, mispredict, stall_frontend, is_return_instr, btb_hit,
+    input logic CLK, reset, flush, stall_frontend, is_return_instr, btb_hit,
     input logic [XLEN-1:0] ras_target_address, btb_target_address, ex_actual_target_address,
     output logic [XLEN-1:0] next_pc
 );
@@ -11,7 +11,7 @@ module PC #(
         if (reset) begin
             next_pc <= 0;
         end
-        else if (mispredict) begin
+        else if (flush) begin
             next_pc <= ex_actual_target_address; //from EX stage(actual target address)
         end
         else if (is_return_instr) begin

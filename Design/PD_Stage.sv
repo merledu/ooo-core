@@ -5,14 +5,14 @@ module PD_Stage #(
     parameter RAS_ADDRESS = 3
 )(
     input logic CLK, reset, stall_frontend, ex_actual_taken, restore_ghr, restore_ras, update_pht, 
-    input logic ex_is_jalr, ex_is_ret, ex_is_branch, mispredict, //mispredict = flush(from ex)
+    input logic ex_is_jalr, ex_is_ret, ex_is_branch, flush, //flush = flush(from ex)
     input logic [1:0] if_predecode_instr1, if_predecode_instr2,
     input logic [XLEN-1:0] ex_actual_target_address, if_target_address, if_pc, ex_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
     input logic [PHT_ADDRESS-1:0] rb_pht_index,
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
-    
+
     output logic pd_pred_taken, pd_btb_hit, pd_valid1, pd_valid2,
     output logic [XLEN-1:0] pd_pc, pd_pred_target,
     output logic [PHT_ADDRESS-1:0] pd_pht_index,
@@ -44,8 +44,8 @@ module PD_Stage #(
             pd_valid2 <= 0;
         end
         else if (!stall_frontend) begin
-            pd_valid1 <= !mispredict;
-            pd_valid2 <= !mispredict && squash_instruction;
+            pd_valid1 <= !flush;
+            pd_valid2 <= !flush && squash_instruction;
             pd_pht_index <= pht_index;
             pd_prev_ghr <= prev_ghr;
         end
@@ -68,7 +68,7 @@ module PD_Stage #(
         //inputs
         .CLK                        (CLK),
         .reset                      (reset),
-        .mispredict                 (mispredict),
+        .flush                      (flush),
         .stall_frontend             (stall_frontend),
         .ras_target_address         (pred_return_address), 
         .btb_target_address         (pred_target_address),
