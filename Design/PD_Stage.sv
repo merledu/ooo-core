@@ -12,6 +12,7 @@ module PD_Stage #(
     input logic [PHT_ADDRESS-1:0] rb_pht_index,
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
+    
     output logic pd_pred_taken, pd_btb_hit, pd_valid1, pd_valid2,
     output logic [XLEN-1:0] pd_pc, pd_pred_target,
     output logic [PHT_ADDRESS-1:0] pd_pht_index,

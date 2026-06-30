@@ -7,15 +7,16 @@ module ID_Stage #(
     parameter INIT_IMMEDIATE_SIZE = 21,
     parameter BIQ_ADDRESS = 5
 ) (
-    input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken1, if_pred_taken2, 
-    input logic if_valid1, if_valid2, if_btb_hit1, if_btb_hit2,
-    input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target1, if_pred_target2, 
+    input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken, 
+    input logic if_valid1, if_valid2, if_btb_hit,
+    input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target, 
     input logic [XLEN-3:0] if_pc,
     input logic [BIQ_ADDRESS-1:0] rr_biq_id,
-    input logic [PHT_ADDRESS-1:0] if_pht_index1, if_pht_index2,
+    input logic [PHT_ADDRESS-1:0] if_pht_index,
     input logic [RAS_ADDRESS-1:0] if_sp_snap,
     input logic [2*XLEN-1:0] if_ras_snap,
     input logic [GHR_SIZE-1:0] if_prev_ghr,
+    
     output logic [RAS_ADDRESS-1:0] id_biq_sp_snap,
     output logic [2*XLEN-1:0] id_biq_ras_snap,
     output logic stall_frontend, id_take_snap, id_valid1, id_valid2,
