@@ -2,7 +2,7 @@
 module PC #(
     parameter XLEN = 32    
 )(  
-    input logic CLK, reset, flush, stall_frontend, is_return_instr, btb_hit,
+    input logic CLK, reset, flush, stall_frontend, is_return_instr, btb_hit, pht_pred_taken, btb_is_branch,
     input logic [XLEN-1:0] ras_target_address, btb_target_address, ex_actual_target_address,
     output logic [XLEN-1:0] next_pc
 );
@@ -17,7 +17,7 @@ module PC #(
         else if (is_return_instr) begin
             next_pc <= ras_target_address; //from RAS
         end
-        else if (btb_hit) begin
+        else if (btb_hit && (pht_pred_taken || ~btb_is_branch)) begin
             next_pc <= btb_target_address; //from BTB
         end
         else if (!stall_frontend) begin

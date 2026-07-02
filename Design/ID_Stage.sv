@@ -41,17 +41,16 @@ module ID_Stage #(
     logic [6:0] funct7_1, funct7_2;
     logic [2:0] ALUOp_1, ALUOp_2;
     logic [INIT_IMMEDIATE_SIZE-1:0] imm_out1, imm_out2;
-    logic is_control_flow_instr1, is_control_flow_instr2, pred_valid1, pred_valid2;
+    logic is_control_flow_instr, pred_valid1, pred_valid2;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
     logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2;
     
     assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
     assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
-    assign is_control_flow_instr1 = (Branch_1 || Jump_1) && if_valid1 && !stall_frontend;
-    assign is_control_flow_instr2 = (Branch_2 || Jump_2) && if_valid2 && !stall_frontend;
-    assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit1);
-    assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit2);
+    assign is_control_flow_instr1 = (Branch_1 || Jump_1 || Branch_2 || Jump_2) && if_valid1 && !stall_frontend;
+    assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit);
+    assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit);
 
     always_ff @(posedge CLK) begin 
         if (reset) begin
@@ -161,26 +160,16 @@ module ID_Stage #(
         .flush           (flush),
         // from dispatch stage
         .biq_dealloc     (dis_biq_dealloc),
-
-        // Slot 1 Inputs (Allocation)
-        .biq_alloc1      (is_control_flow_instr1),
+        //Allocation
+        .biq_alloc       (is_control_flow_instr)
         .pred_valid1     (pred_valid1),
-        .pred_taken1     (if_pred_taken1),
-        .pred_target1    (if_pred_target1),
-        .pht_index1      (if_pht_index1),
-        // Slot 2 Inputs (Allocation)
-        .biq_alloc2      (is_control_flow_instr2),
         .pred_valid2     (pred_valid2),
-        .pred_taken2     (if_pred_taken2),
-        .pred_target2    (if_pred_target2),
-        .pht_index2      (if_pht_index2),
-        
-        // Shared Input
+        .pred_taken      (if_pred_taken),
+        .pred_target     (if_pred_target),
+        .pht_index       (if_pht_index),
         .prev_ghr        (if_prev_ghr),
         .sp_snap         (if_sp_snap),
         .ras_snap        (if_ras_snap),
-        // Read Port Input (register read Stage)
-        .biq_id          ({rr_biq_id, rr_slot_id}),
         
         // Outputs (to ROB)
         .biq_address     (id_biq_address),

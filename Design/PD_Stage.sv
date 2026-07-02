@@ -21,7 +21,6 @@ module PD_Stage #(
     output logic [GHR_SIZE-1:0] pd_prev_ghr
 );
 
-    
     logic [GHR_SIZE-1:0] ghr_out, prev_ghr;
     logic [PHT_ADDRESS-1:0] pht_index;
     logic pred_taken, btb_hit, is_return_instr, squash_instruction;
@@ -31,7 +30,7 @@ module PD_Stage #(
     logic [XLEN-1:0] next_pc;
 
     assign pht_index = ghr_out ^ next_pc[PHT_ADDRESS+1:2];
-    assign pd_pred_taken = pred_taken;
+    assign pd_pred_taken = btb_hit && pred_taken && btb_is_branch;
     assign pd_pred_target = (is_return_instr)? pred_return_address : pred_target_address;
     assign pd_pc = next_pc;
     assign pd_btb_hit = btb_hit;
@@ -75,6 +74,8 @@ module PD_Stage #(
         .ex_actual_target_address   (ex_actual_target_address),
         .is_return_instr            (is_return_instr),
         .btb_hit                    (btb_hit),
+        .pht_pred_taken             (pred_taken), 
+        .btb_is_branch              (btb_is_branch),
         //outputs
         .next_pc                    (next_pc)
         
@@ -109,9 +110,11 @@ module PD_Stage #(
 
         .ex_target_address       (ex_actual_target_address),
         .if_target_address       (if_target_address),
+        
 
         //outputs
         .btb_hit                 (btb_hit),
+        .btb_is_branch           (btb_is_branch),
         .squash_instruction      (squash_instruction),
         .pred_target_address     (pred_target_address)
     );
