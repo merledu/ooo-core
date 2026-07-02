@@ -21,7 +21,7 @@ module main_datapath #(
     // Backend Predictor Updates (From Execute/Commit)
     // -----------------------------------------
     input  logic actual_taken, mispredict, restore_ghr, restore_ras, update_pht, 
-    input  logic update_btb, update_ras, ex_is_ret, ex_is_branch,
+    input  logic update_btb, update_ras, ex_is_ret, ex_is_branch, ex_is_jalr,
     input  logic [XLEN-1:0] actual_target_address, ex_pc,
     input  logic [GHR_SIZE-1:0] ghr_snap,
     input  logic [PHT_ADDRESS-1:0] rb_pht_index,
@@ -93,7 +93,8 @@ module main_datapath #(
     // ============================================================================
     logic id_stall_frontend, rn_stall_frontend;
     assign stall_frontend = id_stall_frontend | rn_stall_frontend;
-
+    logic [1:0] if_predecode_instr1, if_predecode_instr2;
+    logic [XLEN-1:0] if_target_address;
     logic [XLEN-1:0] spec_return_address;
     
     // PD/IF Signals... (Omitted declarations for brevity, assuming they match your previous code)
@@ -133,7 +134,7 @@ module main_datapath #(
     // MODULE INSTANTIATIONS
     // ============================================================================
 
-    PD_Stage #(
+   PD_Stage #(
         .PHT_ADDRESS            (9),
         .GHR_SIZE               (9),
         .XLEN                   (32),
@@ -147,15 +148,16 @@ module main_datapath #(
         .restore_ghr             (restore_ghr),
         .restore_ras             (restore_ras),
         .update_pht              (update_pht),
-        .ex_is_jalr              (/* connect to top-level ex_is_jalr */), 
+        .ex_is_jalr              (ex_is_jalr), 
         .ex_is_ret               (ex_is_ret),
         .ex_is_branch            (ex_is_branch),
-        .mispredict              (mispredict),
-        .if_predecode_instr1     (/* connect to top-level if_predecode_instr1 */),
-        .if_predecode_instr2     (/* connect to top-level if_predecode_instr2 */),
-        .ex_actual_target_address(actual_target_address),
-        .if_target_address       (/* connect to top-level if_target_address */),
-        .if_pc                   (pd_pc), // Assuming pd_pc maps to if_pc, adjust if needed
+        .flush                   (mispredict), 
+        .if_predecode_instr1     (if_predecode_instr1), 
+        .if_predecode_instr2     (if_predecode_instr2), 
+        .ex_actual_target_address(actual_target_address), 
+        .if_target_address       (if_target_address),
+
+        .if_pc                   (pd_pc), 
         .ex_pc                   (ex_pc),
         .ghr_snap                (ghr_snap),
         .rb_pht_index            (rb_pht_index),
@@ -163,93 +165,137 @@ module main_datapath #(
         .rb_ras_snap             (rb_ras_snap),
 
         // Outputs
-        .pd_pred_taken           (pd_pred_taken1), // Verify if this maps to channel 1 or combined
-        .pd_btb_hit              (pd_btb_hit1),    // Verify if this maps to channel 1 or combined
+        .pd_pred_taken           (pd_pred_taken1), 
+        .pd_btb_hit              (pd_btb_hit1),    
         .pd_valid1               (pd_valid1),
         .pd_valid2               (pd_valid2),
         .pd_pc                   (pd_pc),
-        .pd_pred_target          (pd_pred_target1), // Verify if this maps to channel 1 or combined
-        .pd_pht_index            (pd_pht_index1),   // Verify if this maps to channel 1 or combined
+        .pd_pred_target          (pd_pred_target1), 
+        .pd_pht_index            (pd_pht_index1),   
         .pd_sp_snap              (pd_sp_snap),
         .pd_ras_snap             (pd_ras_snap),
         .pd_prev_ghr             (pd_prev_ghr)
     );
-    
-    IF_Stage #( /* ... Parameters ... */ ) if_stage_inst (
+    IF_Stage #( 
+        .PHT_ADDRESS            (9),
+        .GHR_SIZE               (9),
+        .XLEN                   (32),
+        .RAS_ADDRESS            (3)
+    ) if_stage_inst (
+        // Inputs
         .CLK                     (CLK),
         .reset                   (reset),
         .flush                   (flush),
-        .stall_frontend          (stall_frontend), // Uses COMBINED stall
         .pd_valid1               (pd_valid1),
         .pd_valid2               (pd_valid2),
+        .stall_frontend          (stall_frontend), // Uses COMBINED stall
+        .pd_pred_taken           (pd_pred_taken1), // Collapsed from channels 1 & 2
+        .pd_btb_hit              (pd_btb_hit1),    // Collapsed from channels 1 & 2
         .pd_pc                   (pd_pc),
-        .pd_pred_taken1          (pd_pred_taken1),
-        .pd_pred_taken2          (pd_pred_taken2),
-        .pd_btb_hit1             (pd_btb_hit1),
-        .pd_btb_hit2             (pd_btb_hit2),
-        .pd_pred_target1         (pd_pred_target1),
-        .pd_pred_target2         (pd_pred_target2),
-        .pd_pht_index1           (pd_pht_index1),
-        .pd_pht_index2           (pd_pht_index2),
+        .pd_pred_target          (pd_pred_target1), // Collapsed from channels 1 & 2
+        .pd_pht_index            (pd_pht_index1),   // Collapsed from channels 1 & 2
         .pd_sp_snap              (pd_sp_snap),
         .pd_ras_snap             (pd_ras_snap),
         .pd_prev_ghr             (pd_prev_ghr),
+
+        // Outputs
+        .if_pred_taken           (if_pred_taken1), // Collapsed from channels 1 & 2
+        .if_btb_hit              (if_btb_hit1),    // Collapsed from channels 1 & 2
         .if_valid1               (if_valid1),
         .if_valid2               (if_valid2),
-        .if_pc                   (if_pc),
+        .if_predecode_instr1     (if_predecode_instr1), // NEW port
+        .if_predecode_instr2     (if_predecode_instr2), // NEW port
         .if_instr1               (if_instr1),
         .if_instr2               (if_instr2),
-        .if_pred_taken1          (if_pred_taken1),
-        .if_pred_taken2          (if_pred_taken2),
-        .if_btb_hit1             (if_btb_hit1),
-        .if_btb_hit2             (if_btb_hit2),
-        .if_pred_target1         (if_pred_target1),
-        .if_pred_target2         (if_pred_target2),
-        .if_pht_index1           (if_pht_index1),
-        .if_pht_index2           (if_pht_index2),
+        .if_pred_target          (if_pred_target1), // Collapsed from channels 1 & 2
+        .if_pc                   (if_pc),           // Note: internal width changed to [XLEN-3:0]
+        .if_pht_index            (if_pht_index1),   // Collapsed from channels 1 & 2
         .if_sp_snap              (if_sp_snap),
         .if_ras_snap             (if_ras_snap),
         .if_prev_ghr             (if_prev_ghr)
     );
 
-    ID_Stage #( /* ... Parameters ... */ ) id_stage_inst (
+    ID_Stage #( 
+        .OPCODE_SIZE            (7),
+        .PHT_ADDRESS            (9),
+        .GHR_SIZE               (9),
+        .XLEN                   (32),
+        .RAS_ADDRESS            (3),
+        .INIT_IMMEDIATE_SIZE    (21),
+        .BIQ_ADDRESS            (5)
+    ) id_stage_inst (
+        // Inputs
         .CLK                     (CLK),
         .reset                   (reset),
         .flush                   (flush),
+        .rr_slot_id              (rr_slot_id),
+        .dis_biq_dealloc         (dis_biq_dealloc),
+        .if_pred_taken           (if_pred_taken1), // Collapsed from channels 1 & 2
         .if_valid1               (if_valid1),
         .if_valid2               (if_valid2),
+        .if_btb_hit              (if_btb_hit1),    // Collapsed from channels 1 & 2
         .if_instr1               (if_instr1),
         .if_instr2               (if_instr2),
-        .if_pc                   (if_pc),
-        .if_pred_taken1          (if_pred_taken1),
-        .if_pred_taken2          (if_pred_taken2),
-        .if_btb_hit1             (if_btb_hit1),
-        .if_btb_hit2             (if_btb_hit2),
-        .if_pred_target1         (if_pred_target1),
-        .if_pred_target2         (if_pred_target2),
-        .if_pht_index1           (if_pht_index1),
-        .if_pht_index2           (if_pht_index2),
+        .if_pred_target          (if_pred_target1), // Collapsed from channels 1 & 2
+        .if_pc                   (if_pc),           // Note: internal width changed to [XLEN-3:0]
+        .rr_biq_id               (rr_biq_id),
+        .if_pht_index            (if_pht_index1),   // Collapsed from channels 1 & 2
         .if_sp_snap              (if_sp_snap),
         .if_ras_snap             (if_ras_snap),
         .if_prev_ghr             (if_prev_ghr),
-        .dis_biq_dealloc         (dis_biq_dealloc),
-        .rr_biq_id               (rr_biq_id),
-        .rr_slot_id              (rr_slot_id),
-        .stall_frontend          (id_stall_frontend), // Dedicated ID stall
+        
+        // Outputs
+        .id_biq_sp_snap          (id_biq_sp_snap),
+        .id_biq_ras_snap         (id_biq_ras_snap),
+        .stall_frontend          (id_stall_frontend), // Dedicated ID stall mapped to output
         .id_take_snap            (id_take_snap),
         .id_valid1               (id_valid1),
         .id_valid2               (id_valid2),
-        .id_pc                   (id_pc),
-        .id_funct3_1             (id_funct3_1), .id_funct7_1(id_funct7_1), .id_rs1_1(id_rs1_1), .id_rs2_1(id_rs2_1), .id_rd_1(id_rd_1),
-        .id_immout1              (id_immout1), .id_alu_op1(id_alu_op1), .id_jump_reg1(id_jump_reg1), .id_jump1(id_jump1), .id_branch1(id_branch1),
-        .id_regsrc1_1            (id_regsrc1_1), .id_regsrc2_1(id_regsrc2_1), .id_immtype1(id_immtype1), .id_memwrite1(id_memwrite1), .id_regwrite1(id_regwrite1),
-        .id_memtoreg1            (id_memtoreg1), .id_retaddr1(id_retaddr1), .id_isimm1(id_isimm1), .id_upperimm1(id_upperimm1),
-        .id_funct3_2             (id_funct3_2), .id_funct7_2(id_funct7_2), .id_rs1_2(id_rs1_2), .id_rs2_2(id_rs2_2), .id_rd_2(id_rd_2),
-        .id_immout2              (id_immout2), .id_alu_op2(id_alu_op2), .id_jump_reg2(id_jump_reg2), .id_jump2(id_jump2), .id_branch2(id_branch2),
-        .id_regsrc1_2            (id_regsrc1_2), .id_regsrc2_2(id_regsrc2_2), .id_immtype2(id_immtype2), .id_memwrite2(id_memwrite2), .id_regwrite2(id_regwrite2),
-        .id_memtoreg2            (id_memtoreg2), .id_retaddr2(id_retaddr2), .id_isimm2(id_isimm2), .id_upperimm2(id_upperimm2),
-        .id_biq_address          (id_biq_address), .id_biq_valid(id_biq_valid), .id_biq_pred_taken(id_biq_pred_taken), .id_biq_pred_target(id_biq_pred_target),
-        .id_biq_pht_index        (id_biq_pht_index), .id_biq_restore_ghr(id_biq_restore_ghr), .id_biq_sp_snap(id_biq_sp_snap), .id_biq_ras_snap(id_biq_ras_snap)
+        .id_funct3_1             (id_funct3_1), 
+        .id_funct3_2             (id_funct3_2),
+        .id_funct7_1             (id_funct7_1), 
+        .id_funct7_2             (id_funct7_2),
+        .id_rs1_1                (id_rs1_1), 
+        .id_rs2_1                (id_rs2_1), 
+        .id_rd_1                 (id_rd_1),
+        .id_rs1_2                (id_rs1_2), 
+        .id_rs2_2                (id_rs2_2), 
+        .id_rd_2                 (id_rd_2),
+        .id_immout1              (id_immout1), 
+        .id_immout2              (id_immout2),
+        .id_biq_address          (id_biq_address),
+        .id_biq_pred_target      (id_biq_pred_target), 
+        .id_pc                   (id_pc),           // Note: internal width changed to [XLEN-3:0]
+        .id_biq_restore_ghr      (id_biq_restore_ghr),
+        .id_biq_pht_index        (id_biq_pht_index),
+        .id_alu_op1              (id_alu_op1), 
+        .id_alu_op2              (id_alu_op2),
+        .id_jump_reg1            (id_jump_reg1), 
+        .id_jump_reg2            (id_jump_reg2), 
+        .id_jump1                (id_jump1), 
+        .id_jump2                (id_jump2), 
+        .id_branch1              (id_branch1), 
+        .id_branch2              (id_branch2), 
+        .id_regsrc1_1            (id_regsrc1_1),  
+        .id_immtype1             (id_immtype1), 
+        .id_memwrite1            (id_memwrite1),  
+        .id_immtype2             (id_immtype2), 
+        .id_biq_valid            (id_biq_valid), 
+        .id_biq_pred_taken       (id_biq_pred_taken), 
+        .id_regsrc2_1            (id_regsrc2_1),
+        .id_regsrc1_2            (id_regsrc1_2), 
+        .id_regsrc2_2            (id_regsrc2_2), 
+        .id_upperimm1            (id_upperimm1), 
+        .id_upperimm2            (id_upperimm2), 
+        .id_regwrite1            (id_regwrite1), 
+        .id_regwrite2            (id_regwrite2), 
+        .id_memwrite2            (id_memwrite2), 
+        .id_memtoreg1            (id_memtoreg1), 
+        .id_memtoreg2            (id_memtoreg2), 
+        .id_retaddr1             (id_retaddr1), 
+        .id_retaddr2             (id_retaddr2), 
+        .id_isimm1               (id_isimm1), 
+        .id_isimm2               (id_isimm2)
     );
 
     RN_Stage #(

@@ -19,7 +19,7 @@ module tb_main_datapath();
 
     // Backend Predictor Updates
     logic actual_taken, mispredict, restore_ghr, restore_ras, update_pht;
-    logic update_btb, update_ras, ex_is_ret, ex_is_branch;
+    logic update_btb, update_ras, ex_is_ret, ex_is_branch, ex_is_jalr;
     logic [XLEN-1:0] actual_target_address, ex_pc;
     logic [GHR_SIZE-1:0] ghr_snap;
     logic [PHT_ADDRESS-1:0] rb_pht_index;
@@ -86,6 +86,7 @@ module tb_main_datapath();
         // Zero-out Execution/Backend Feedbacks
         actual_taken = 0; mispredict = 0; restore_ghr = 0; restore_ras = 0;
         update_pht = 0; update_btb = 0; update_ras = 0; ex_is_ret = 0; ex_is_branch = 0;
+        ex_is_jalr = 0;
         actual_target_address = '0; ex_pc = '0; ghr_snap = '0;
         rb_pht_index = '0; rb_sp_snap = '0; rb_ras_snap = '0;
 

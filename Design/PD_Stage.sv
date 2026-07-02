@@ -108,8 +108,8 @@ module PD_Stage #(
         .if_pc                   (if_pc),
         .ex_pc                   (ex_pc),
 
-        .ex_target_address       (ex_actual_target_address),
-        .if_target_address       (if_target_address),
+        .ex_target_address       (ex_actual_target_address[XLEN-1:2]), // or [31:2] if XLEN isn't a parameter here
+        .if_target_address       (if_target_address[XLEN-1:2]),        // or [31:2]
         
 
         //outputs

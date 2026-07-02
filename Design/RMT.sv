@@ -8,6 +8,7 @@ module RMT #(
     input logic [4:0] rd2, rs1_2, rs2_2,
     input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, cdb_waked_reg1, cdb_waked_reg2,
     input logic [31:0][PRF_ADDRESS-1:0] bs_rmt_snap,
+    
     output logic prs1_busy1, prs2_busy1, prs1_busy2, prs2_busy2,
     output logic [PRF_ADDRESS-1:0] prd1, prs1_1, prs2_1, old_prd1,
     output logic [PRF_ADDRESS-1:0] prd2, prs1_2, prs2_2, old_prd2,
