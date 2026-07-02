@@ -1,11 +1,11 @@
 module ID_Stage #(
-    parameter OPCODE_SIZE = 7,
-    parameter PHT_ADDRESS = 9,
-    parameter GHR_SIZE = 9,
-    parameter XLEN = 32,
-    parameter RAS_ADDRESS = 3,
-    parameter INIT_IMMEDIATE_SIZE = 21,
-    parameter BIQ_ADDRESS = 5
+    parameter OPCODE_SIZE           = 7,
+    parameter PHT_ADDRESS           = 9,
+    parameter GHR_SIZE              = 9,
+    parameter XLEN                  = 32,
+    parameter RAS_ADDRESS           = 3,
+    parameter INIT_IMMEDIATE_SIZE   = 21,
+    parameter BIQ_ADDRESS           = 5
 ) (
     input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken, 
     input logic if_valid1, if_valid2, if_btb_hit,
@@ -41,16 +41,17 @@ module ID_Stage #(
     logic [6:0] funct7_1, funct7_2;
     logic [2:0] ALUOp_1, ALUOp_2;
     logic [INIT_IMMEDIATE_SIZE-1:0] imm_out1, imm_out2;
-    logic is_control_flow_instr, pred_valid1, pred_valid2;
+    logic is_control_flow_instr;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
     logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2;
     
     assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
     assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
-    assign is_control_flow_instr1 = (Branch_1 || Jump_1 || Branch_2 || Jump_2) && if_valid1 && !stall_frontend;
-    assign pred_valid1 = (is_control_flow_instr1 && if_btb_hit);
-    assign pred_valid2 = (is_control_flow_instr2 && if_btb_hit);
+    assign is_control_flow_instr = !stall_frontend &&
+                    (if_valid1 && (Branch_1 || Jump_1) || 
+                     if_valid2 && (Branch_2 || Jump_2));
+    
 
     always_ff @(posedge CLK) begin 
         if (reset) begin
@@ -61,7 +62,7 @@ module ID_Stage #(
         else if (!stall_frontend) begin
             id_valid1 <= (!flush && if_valid1); 
             id_valid2 <= (!flush && if_valid2); 
-            id_take_snap <= (is_control_flow_instr1 || is_control_flow_instr2);
+            id_take_snap <= is_control_flow_instr;
             id_pc <= if_pc;
             
             id_funct3_1 <= if_instr1[14:12];
@@ -160,10 +161,10 @@ module ID_Stage #(
         .flush           (flush),
         // from dispatch stage
         .biq_dealloc     (dis_biq_dealloc),
+        //from register read stage
+        .biq_id          (rr_biq_id),
         //Allocation
-        .biq_alloc       (is_control_flow_instr)
-        .pred_valid1     (pred_valid1),
-        .pred_valid2     (pred_valid2),
+        .biq_alloc       (is_control_flow_instr),
         .pred_taken      (if_pred_taken),
         .pred_target     (if_pred_target),
         .pht_index       (if_pht_index),
@@ -175,7 +176,6 @@ module ID_Stage #(
         .biq_address     (id_biq_address),
         .stall_frontend  (stall_frontend), //signal generated instantly
         // Outputs (to Execute for Verification)
-        .biq_valid       (id_biq_valid),
         .biq_pred_taken  (id_biq_pred_taken),
         .biq_pred_target (id_biq_pred_target),
         //for prediction stage

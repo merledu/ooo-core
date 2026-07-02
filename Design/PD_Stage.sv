@@ -23,7 +23,7 @@ module PD_Stage #(
 
     logic [GHR_SIZE-1:0] ghr_out, prev_ghr;
     logic [PHT_ADDRESS-1:0] pht_index;
-    logic pred_taken, btb_hit, is_return_instr, squash_instruction;
+    logic pred_taken, btb_hit,btb_is_branch, is_return_instr, squash_instruction;
     logic [XLEN-1:0] pred_return_address, pred_target_address;
     logic [RAS_ADDRESS-1:0] sp_snap;
     logic [2*XLEN-1:0] ras_snap;

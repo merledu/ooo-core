@@ -7,13 +7,14 @@ module BIQ #(
 ) (
     input logic CLK, reset, biq_dealloc, flush, biq_alloc, pred_taken,
     input logic [XLEN-1:0] pred_target,
+    input logic [BIQ_ADDRESS-1:0] biq_id,
     input logic [PHT_ADDRESS-1:0] pht_index,
     input logic [GHR_SIZE-1:0] prev_ghr,
     input logic [RAS_ADDRESS-1:0] sp_snap,
     input logic [2*XLEN-1:0] ras_snap,
 
     output logic biq_pred_taken, stall_frontend, 
-    output logic [BIQ_ADDRESS-1:0] biq_address, //without slot id cuz 2 slots combined
+    output logic [BIQ_ADDRESS-1:0] biq_address,
     output logic [XLEN-1:0] biq_pred_target, 
     output logic [GHR_SIZE-1:0] biq_restore_ghr, 
     output logic [RAS_ADDRESS-1:0] biq_sp_snap,
@@ -35,7 +36,7 @@ module BIQ #(
     logic [BIQ_ADDRESS:0] biq_head_ptr, biq_tail_ptr;
     logic biq_full;
 
-    assign biq_read_address = biq_id[BIQ_ADDRESS:1];
+    assign biq_read_address = biq_id;
     assign biq_full = (biq_head_ptr[BIQ_ADDRESS-1:0] == biq_tail_ptr[BIQ_ADDRESS-1:0]) && (biq_head_ptr[BIQ_ADDRESS]!= biq_tail_ptr[BIQ_ADDRESS]);
     assign biq_address = biq_tail_ptr[BIQ_ADDRESS-1:0];
     assign stall_frontend = biq_full;
@@ -52,7 +53,7 @@ module BIQ #(
             if (biq_dealloc) begin
                 biq_head_ptr <= biq_head_ptr + 1;
             end
-            if(!biq_full && biq_alloc) begin
+            if ((!biq_full || biq_dealloc) && biq_alloc) begin
                 BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].predicted_taken  <= pred_taken;
                 BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].predicted_target <= pred_target;
                 BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].pht_table_index  <= pht_index;
