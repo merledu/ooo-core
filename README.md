@@ -20,14 +20,9 @@ The microarchitecture is organized as a **12-stage pipeline**:
 12. Commit
 
 ---
-
 ## Architecture Diagram
 
-
-```markdown
 ![Processor Architecture](Documentation/processor_architecture.png)
-```
-
 ---
 
 ## Key Features
