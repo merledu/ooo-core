@@ -29,13 +29,7 @@ module PD_Stage #(
     logic [2*XLEN-1:0] ras_snap;
     logic [XLEN-1:0] next_pc;
 
-    assign pht_index = ghr_out ^ next_pc[PHT_ADDRESS+1:2];
-    assign pd_pred_taken = btb_hit && pred_taken && btb_is_branch;
-    assign pd_pred_target = (is_return_instr)? pred_return_address : pred_target_address;
-    assign pd_pc = next_pc;
-    assign pd_btb_hit = btb_hit;
-    assign pd_sp_snap = sp_snap;
-    assign pd_ras_snap = ras_snap;
+    
     
     always_ff @(posedge CLK) begin 
         if (reset) begin
@@ -44,9 +38,16 @@ module PD_Stage #(
         end
         else if (!stall_frontend) begin
             pd_valid1 <= !flush;
-            pd_valid2 <= !flush && squash_instruction;
+            pd_valid2 <= !flush && !squash_instruction;
             pd_pht_index <= pht_index;
             pd_prev_ghr <= prev_ghr;
+            pht_index <= ghr_out ^ next_pc[PHT_ADDRESS+1:2];
+            pd_pred_taken <= btb_hit && pred_taken && btb_is_branch;
+            pd_pred_target <= (is_return_instr)? pred_return_address : pred_target_address;
+            pd_pc <= next_pc;
+            pd_btb_hit <= btb_hit;
+            pd_sp_snap <= sp_snap;
+            pd_ras_snap <= ras_snap;
         end
     end
     GHR ghr_instantiation(

@@ -100,7 +100,7 @@ module tb_main_datapath();
         comm_free_reg1 = '0; comm_free_reg2 = '0;
 
         // Apply Reset
-        #15 reset = 0;
+        #10 reset = 0;
 
         // Wait a few cycles to let PD, IF, and ID stages fill
         #60;

@@ -36,7 +36,7 @@ module IF_Stage #(
             if_valid2 <= (!flush && pd_valid2);  
             if_pred_taken <= pd_pred_taken;
             if_btb_hit <= pd_btb_hit;
-            if_pc <= instr1_addr;
+            if_pc <= pd_pc[XLEN-1:2];
             if_pred_target <= pd_pred_target;
             if_pht_index <= pd_pht_index;
             if_sp_snap <= pd_sp_snap;

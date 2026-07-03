@@ -54,12 +54,12 @@ module BIQ #(
                 biq_head_ptr <= biq_head_ptr + 1;
             end
             if ((!biq_full || biq_dealloc) && biq_alloc) begin
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].predicted_taken  <= pred_taken;
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].predicted_target <= pred_target;
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].pht_table_index  <= pht_index;
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].previous_ghr     <= prev_ghr;
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].ras_snapshot     <= ras_snap;
-                BIQ[biq_tail_ptr[BIQ_ADDRESS-1:0]].sp_snapshot      <= sp_snap;
+                BIQ[biq_address].predicted_taken  <= pred_taken;
+                BIQ[biq_address].predicted_target <= pred_target;
+                BIQ[biq_address].pht_table_index  <= pht_index;
+                BIQ[biq_address].previous_ghr     <= prev_ghr;
+                BIQ[biq_address].ras_snapshot     <= ras_snap;
+                BIQ[biq_address].sp_snapshot      <= sp_snap;
                 biq_tail_ptr <= biq_tail_ptr + 1;
             end
         end

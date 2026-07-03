@@ -12,6 +12,7 @@ module BS #(
     input logic [BTAG_SIZE-1:0] ex_btag,
     input logic [31:0][PRF_ADDRESS-1:0] rmt_snap,
     input logic [FL_PTR_WIDTH-1:0] freelist_head_snap,
+
     output logic bs_full,
     output logic [31:0][PRF_ADDRESS-1:0] bs_rmt_snap,
     output logic [FL_PTR_WIDTH-1:0] bs_freelist_head_snap,
@@ -44,12 +45,11 @@ module BS #(
     assign bs_rmt_snap = BS[ex_btag].rmt_snapshot;
     assign bs_freelist_head_snap = BS[ex_btag].freelist_head_snapshot;
     assign bs_full = &BMR;
+    //to dispatch stage
+    assign bs_branch_tag = current_btag;
+    assign bs_branch_mask = BMR;
 
     always_ff @(posedge CLK) begin
-        //to dispatch stage
-        bs_branch_tag <= current_btag;
-        bs_branch_mask <= BMR;
-
         if (reset) begin
             BMR <= '0;
         end

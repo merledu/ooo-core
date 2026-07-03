@@ -9,7 +9,7 @@ module PC #(
 
     always_ff @(posedge CLK) begin
         if (reset) begin
-            next_pc <= 0;
+            next_pc <= -8;
         end
         else if (flush) begin
             next_pc <= ex_actual_target_address; //from EX stage(actual target address)
