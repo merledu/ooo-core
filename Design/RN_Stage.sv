@@ -18,14 +18,12 @@ module RN_Stage #(
     input logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2, comm_free_reg1, comm_free_reg2,
     input logic [BTAG_SIZE-1:0] ex_btag,
-    input logic [2:0] id_funct3_1, id_funct3_2,
-    input logic [6:0] id_funct7_1, id_funct7_2,
     input logic [4:0] id_rs1_1, id_rs2_1, id_rd_1,
     input logic [4:0] id_rs1_2, id_rs2_2, id_rd_2,
     input logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
     input logic [BIQ_ADDRESS-1:0] id_biq_address,
     input logic [XLEN-3:0] id_pc,
-    input logic [2:0] id_alu_op1, id_alu_op2,
+    input logic [3:0] id_alu_operation1, id_alu_operation2,
     
     output logic stall_frontend,
     output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_old_prd1, 
@@ -35,10 +33,9 @@ module RN_Stage #(
     output logic [MAX_BRANCHES-1:0] rn_branch_mask,
     output logic [BIQ_ADDRESS-1:0] rn_biq_address,
     output logic [XLEN-3:0] rn_pc,
-    output logic [2:0] rn_funct3_1, rn_funct3_2,
-    output logic [6:0] rn_funct7_1, rn_funct7_2,
+    output logic [4:0] rn_rd_1, rn_rd_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] rn_immout1, rn_immout2,
-    output logic [2:0] rn_alu_op1, rn_alu_op2,
+    output logic [3:0] rn_alu_operation1, rn_alu_operation2,
     output logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, 
     output logic rn_regsrc1_1, rn_regsrc2_1, rn_immtype1, rn_isimm1, rn_retaddr1,
     output logic rn_upperimm1, rn_regwrite1, rn_memwrite1, rn_memtoreg1, 
@@ -62,45 +59,44 @@ module RN_Stage #(
     assign stall_frontend = bs_full || fl_empty;
 
     always_ff @(posedge CLK) begin 
-        rn_biq_address <= id_biq_address;
-        rn_pc <= id_pc;
+        rn_biq_address      <= id_biq_address;
+        rn_pc               <= id_pc;
         // Instruction 1 Control Signals
-        rn_funct3_1  <= id_funct3_1;
-        rn_funct7_1  <= id_funct7_1;
-        rn_valid1    <= id_valid1 && !flush && !stall_frontend;
-        rn_immout1 <= id_immout1;
-        rn_alu_op1 <= id_alu_op1;
-        rn_jump_reg1 <= id_jump_reg1;
-        rn_jump1     <= id_jump1;
-        rn_branch1   <= id_branch1;
-        rn_regsrc1_1 <= id_regsrc1_1;
-        rn_regsrc2_1 <= id_regsrc2_1;
-        rn_immtype1  <= id_immtype1;
-        rn_isimm1    <= id_isimm1;
-        rn_upperimm1 <= id_upperimm1;
-        rn_regwrite1 <= id_regwrite1;
-        rn_memwrite1 <= id_memwrite1;
-        rn_memtoreg1 <= id_memtoreg1;
-        rn_retaddr1  <= id_retaddr1;
+        rn_rd_1             <= id_rd_1;
+        rn_valid1           <= id_valid1 && !flush && !stall_frontend;
+        rn_immout1          <= id_immout1;
+        rn_alu_operation1   <= id_alu_operation1;
+        rn_jump_reg1        <= id_jump_reg1;
+        rn_jump1            <= id_jump1;
+        rn_branch1          <= id_branch1;
+        rn_regsrc1_1        <= id_regsrc1_1;
+        rn_regsrc2_1        <= id_regsrc2_1;
+        rn_immtype1         <= id_immtype1;
+        rn_isimm1           <= id_isimm1;
+        rn_upperimm1        <= id_upperimm1;
+        rn_regwrite1        <= id_regwrite1;
+        rn_memwrite1        <= id_memwrite1;
+        rn_memtoreg1        <= id_memtoreg1;
+        rn_retaddr1         <= id_retaddr1;
         // Instruction 2 Control Signals
-        rn_funct3_2  <= id_funct3_2;
-        rn_funct7_2  <= id_funct7_2;
-        rn_valid2    <= id_valid2 && !flush && !stall_frontend;
-        rn_immout2 <= id_immout2;
-        rn_alu_op2 <= id_alu_op2;
-        rn_jump_reg2 <= id_jump_reg2;
-        rn_jump2     <= id_jump2;
-        rn_branch2   <= id_branch2;
-        rn_regsrc1_2 <= id_regsrc1_2;
-        rn_regsrc2_2 <= id_regsrc2_2;
-        rn_immtype2  <= id_immtype2;
-        rn_isimm2    <= id_isimm2;
-        rn_upperimm2 <= id_upperimm2;
-        rn_regwrite2 <= id_regwrite2;
-        rn_memwrite2 <= id_memwrite2;
-        rn_memtoreg2 <= id_memtoreg2;
-        rn_retaddr2  <= id_retaddr2;
+        rn_rd_2             <= id_rd_2;
+        rn_valid2           <= id_valid2 && !flush && !stall_frontend;
+        rn_immout2          <= id_immout2;
+        rn_alu_operation2   <= id_alu_operation2;
+        rn_jump_reg2        <= id_jump_reg2;
+        rn_jump2            <= id_jump2;
+        rn_branch2          <= id_branch2;
+        rn_regsrc1_2        <= id_regsrc1_2;
+        rn_regsrc2_2        <= id_regsrc2_2;
+        rn_immtype2         <= id_immtype2;
+        rn_isimm2           <= id_isimm2;
+        rn_upperimm2        <= id_upperimm2;
+        rn_regwrite2        <= id_regwrite2;
+        rn_memwrite2        <= id_memwrite2;
+        rn_memtoreg2        <= id_memtoreg2;
+        rn_retaddr2         <= id_retaddr2;
     end
+    
     RMT rmt_instantiation (
         .CLK                (CLK),
         .reset              (reset),

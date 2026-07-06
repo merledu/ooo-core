@@ -7,8 +7,8 @@ module ID_Stage #(
     parameter INIT_IMMEDIATE_SIZE   = 21,
     parameter BIQ_ADDRESS           = 5
 ) (
-    input logic CLK, reset, flush, rr_slot_id, dis_biq_dealloc, if_pred_taken, 
-    input logic if_valid1, if_valid2, if_btb_hit,
+    input logic CLK, reset, flush, dis_biq_dealloc, if_pred_taken, 
+    input logic if_valid1, if_valid2,
     input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target, 
     input logic [XLEN-3:0] if_pc,
     input logic [BIQ_ADDRESS-1:0] rr_biq_id,
@@ -20,8 +20,6 @@ module ID_Stage #(
     output logic [RAS_ADDRESS-1:0] id_biq_sp_snap,
     output logic [2*XLEN-1:0] id_biq_ras_snap,
     output logic stall_frontend, id_take_snap, id_valid1, id_valid2,
-    output logic [2:0] id_funct3_1, id_funct3_2,
-    output logic [6:0] id_funct7_1, id_funct7_2,
     output logic [4:0] id_rs1_1, id_rs2_1, id_rd_1,
     output logic [4:0] id_rs1_2, id_rs2_2, id_rd_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
@@ -30,17 +28,16 @@ module ID_Stage #(
     output logic [XLEN-3:0] id_pc,
     output logic [GHR_SIZE-1:0] id_biq_restore_ghr,
     output logic [PHT_ADDRESS-1:0] id_biq_pht_index,
-    output logic [2:0] id_alu_op1, id_alu_op2,
+    output logic [3:0] id_alu_operation1, id_alu_operation2,
     output logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
     output logic id_immtype1, id_memwrite1,  id_immtype2, id_biq_valid, id_biq_pred_taken, id_regsrc2_1,
     output logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
     output logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2
 );
     logic [OPCODE_SIZE-1:0] opcode_1, opcode_2; 
-    logic [2:0] funct3_1, funct3_2;
-    logic [6:0] funct7_1, funct7_2;
     logic [2:0] ALUOp_1, ALUOp_2;
     logic [INIT_IMMEDIATE_SIZE-1:0] imm_out1, imm_out2;
+    logic [3:0] alu_operation1, alu_operation2;
     logic is_control_flow_instr;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
@@ -65,11 +62,6 @@ module ID_Stage #(
             id_take_snap <= is_control_flow_instr;
             id_pc <= if_pc;
             
-            id_funct3_1 <= if_instr1[14:12];
-            id_funct3_2 <= if_instr2[14:12];
-
-            id_funct7_1 <= if_instr1[31:25];
-            id_funct7_2 <= if_instr2[31:25]; 
 
             id_rs1_1 <= if_instr1[19:15];
             id_rs2_1 <= if_instr1[24:20];
@@ -79,8 +71,8 @@ module ID_Stage #(
             id_rs2_2 <= if_instr2[24:20];
             id_rd_2  <= if_instr2[11:7];
 
-            id_alu_op1 <= ALUOp_1;
-            id_alu_op2 <= ALUOp_2; 
+            id_alu_operation1 <= alu_operation1;
+            id_alu_operation2 <= alu_operation2;
             id_jump_reg1 <= JumpReg_1;
             id_jump_reg2 <= JumpReg_2;
             id_jump1 <= Jump_1;
@@ -153,6 +145,20 @@ module ID_Stage #(
         .instruction        (if_instr2),
         .immediate_output   (imm_out2),
         .imm_type           (imm_type2)
+    );
+
+    ALUCU alucu_instantiation1(
+        .ALUOp(ALUOp_1),
+        .func3(if_instr1[14:12]),
+        .func7(if_instr1[31:25]),
+        .ALUOperation(alu_operation1)
+    );
+
+    ALUCU alucu_instantiation2(
+        .ALUOp(ALUOp_2),
+        .func3(if_instr2[14:12]),
+        .func7(if_instr2[31:25]),
+        .ALUOperation(alu_operation2)
     );
 
     BIQ biq_instantiation (
