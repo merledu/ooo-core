@@ -7,9 +7,9 @@ module BS #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),           
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1           
 ) (
-    input logic CLK, reset, flush, id_take_snap, ex_branch_resolved, pop1, pop2,
+    input logic CLK, reset, flush, id_take_snap, cdb_branch_resolved, pop1, pop2,
     input logic id_branch1, id_jump1, id_valid1,
-    input logic [BTAG_SIZE-1:0] ex_btag,
+    input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [31:0][PRF_ADDRESS-1:0] rmt_snap,
     input logic [FL_PTR_WIDTH-1:0] freelist_head_snap,
 
@@ -42,8 +42,8 @@ module BS #(
     end
      
     //to rename map table
-    assign bs_rmt_snap = BS[ex_btag].rmt_snapshot;
-    assign bs_freelist_head_snap = BS[ex_btag].freelist_head_snapshot;
+    assign bs_rmt_snap = BS[cdb_branch_tag].rmt_snapshot;
+    assign bs_freelist_head_snap = BS[cdb_branch_tag].freelist_head_snapshot;
     assign bs_full = &BMR;
     //to dispatch stage
     assign bs_branch_tag = current_btag;
@@ -56,14 +56,14 @@ module BS #(
         else begin
             //when branch is resolved we make the tag bit zero back again
             if (flush) begin 
-                BMR <= BS[ex_btag].bmr_snapshot;
+                BMR <= BS[cdb_branch_tag].bmr_snapshot;
             end
-            if (ex_branch_resolved) begin
-                BMR[ex_btag] <= 1'b0;
+            if (cdb_branch_resolved) begin
+                BMR[cdb_branch_tag] <= 1'b0;
                 //all the branches that took snapshot of BMR should also get 0 because branch is resolved
                 for (int i = 0; i < MAX_BRANCHES; i++) begin
                     if (!(id_take_snap && (BTAG_SIZE'(i) == current_btag))) begin
-                        BS[i].bmr_snapshot[ex_btag] <= 1'b0; 
+                        BS[i].bmr_snapshot[cdb_branch_tag] <= 1'b0; 
                     end
                 end
             end
@@ -71,7 +71,7 @@ module BS #(
                 BMR[current_btag] <= 1'b1;
                 BS[current_btag].rmt_snapshot <= rmt_snap;
                 BS[current_btag].freelist_head_snapshot <= freelist_head_snap;
-                BS[current_btag].bmr_snapshot <= (ex_branch_resolved) ? (BMR & ~(1 << ex_btag)) : BMR;
+                BS[current_btag].bmr_snapshot <= (cdb_branch_resolved) ? (BMR & ~(1 << cdb_branch_tag)) : BMR;
             end
         end
     end

@@ -9,6 +9,7 @@ module IQ #(
     parameter IQ_ADDRESS = $clog2(IQ_ROWS)
 ) (
     input logic CLK, reset, stall_frontend, flush, cdb_wakeup1, cdb_wakeup2,
+    input logic cdb_branch_resolved, cdb_branch_correct,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
     input logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
@@ -95,6 +96,10 @@ module IQ #(
                 end
                 //if the instruction is not flushed
                 else if (!IQ[i].available) begin 
+                    //clearing branch mask after correctly predicted
+                    if (cdb_branch_resolved && cdb_branch_correct) begin
+                        IQ[i].branch_mask[cdb_branch_tag] <= 1'b0;
+                    end
                     // wake up prs1
                     if (IQ[i].prs1_busy) begin
                         if ((cdb_wakeup1 && (IQ[i].prs1 == cdb_waked_reg1)) || 

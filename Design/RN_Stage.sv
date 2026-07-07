@@ -11,13 +11,13 @@ module RN_Stage #(
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
     input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2,
-    input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, ex_branch_resolved,
+    input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
     input logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
     input logic id_immtype1, id_memwrite1,  id_immtype2, id_regsrc2_1,
     input logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
     input logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2, comm_free_reg1, comm_free_reg2,
-    input logic [BTAG_SIZE-1:0] ex_btag,
+    input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [4:0] id_rs1_1, id_rs2_1, id_rd_1,
     input logic [4:0] id_rs1_2, id_rs2_2, id_rd_2,
     input logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
@@ -178,8 +178,8 @@ module RN_Stage #(
         .id_jump1               (id_jump1),
         .id_valid1              (id_valid1),
         //from ex stage to reset branch mask register when branch gets resolved
-        .ex_branch_resolved     (ex_branch_resolved), 
-        .ex_btag                (ex_btag),
+        .cdb_branch_resolved    (cdb_branch_resolved), 
+        .cdb_branch_tag         (cdb_branch_tag),
         //to store the updated mapping of map table
         .pop1                   (pop1 && !stall_frontend),
         .pop2                   (pop2 && !stall_frontend),
