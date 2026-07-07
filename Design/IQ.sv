@@ -145,7 +145,7 @@ module IQ #(
                 end
                 if (alloc2_found && rn_valid2) begin
                     IQ[iq_alloc_index2].available     <= 0;
-                    IQ[iq_alloc_index2].pc            <= rn_pc;
+                    IQ[iq_alloc_index2].pc            <= rn_pc + 1;
                     IQ[iq_alloc_index2].prd           <= rn_prd2; 
                     IQ[iq_alloc_index2].prs1          <= rn_prs1_2;
                     IQ[iq_alloc_index2].prs1_busy     <= rn_prs1_busy2;
