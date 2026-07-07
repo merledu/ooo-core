@@ -8,15 +8,14 @@ module IQ #(
     parameter IQ_ROWS = 64,
     parameter IQ_ADDRESS = $clog2(IQ_ROWS)
 ) (
-    input logic CLK, reset, stall_frontend, flush,
-    input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, 
+    input logic CLK, reset, stall_frontend, flush, cdb_wakeup1, cdb_wakeup2,
+    input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
     input logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
     input logic [BTAG_SIZE-1:0] rn_branch_tag, cdb_branch_tag,
     input logic [MAX_BRANCHES-1:0] rn_branch_mask,
     input logic [BIQ_ADDRESS-1:0] rn_biq_address,
     input logic [XLEN-3:0] rn_pc,
-    input logic [4:0] rn_rd_1, rn_rd_2,
     input logic [INIT_IMMEDIATE_SIZE-1:0] rn_immout1, rn_immout2,
     input logic [3:0] rn_alu_operation1, rn_alu_operation2,
     input logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, 
@@ -25,6 +24,8 @@ module IQ #(
     input logic rn_valid2, rn_jump_reg2, rn_jump2, rn_branch2, 
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
+
+    output logic iq_full
 );
     typedef struct packed {
         logic available;
@@ -55,90 +56,116 @@ module IQ #(
     
     IQ_organization IQ [0:IQ_ROWS-1];
 
-        // 1. Declare signals to hold the found indices
-    logic [IQ_ADDRESS-1:0] alloc_idx1, alloc_idx2;
+    logic [IQ_ADDRESS-1:0] iq_alloc_index1, iq_alloc_index2;
     logic alloc1_found, alloc2_found;
 
-    // 2. Combinational block to find the first two available slots
     always_comb begin
-        alloc_idx1   = '0;
-        alloc_idx2   = '0;
+        iq_alloc_index1   = '0;
+        iq_alloc_index2   = '0;
         alloc1_found = 1'b0;
         alloc2_found = 1'b0;
-
+        iq_full = 0;
+        
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (IQ[i].available && !alloc1_found) begin
-                alloc_idx1 = i;
+                iq_alloc_index1 = i;
                 alloc1_found = 1'b1;
             end 
             else if (IQ[i].available && alloc1_found && !alloc2_found) begin
-                alloc_idx2 = i;
+                iq_alloc_index2 = i;
                 alloc2_found = 1'b1;
             end
         end
+
+        // iq is full if we dont have enough slots for the VALID instructions
+        iq_full = (rn_valid1 && rn_valid2 && !alloc2_found) || ((rn_valid1 || rn_valid2) && !alloc1_found);
     end
+
     always_ff @(posedge CLK) begin 
-        if(!stall_frontend) begin
-            for (i = 0; i < IQ_ROWS; i++) begin
-                if (IQ[i].available && rn_valid1) begin
-                    IQ[i].available     <= 0;
-                    IQ[i].pc            <= rn_pc;
-                    IQ[i].prd           <= rn_prd1; 
-                    IQ[i].prs1          <= rn_prs1_1;
-                    IQ[i].prs1_busy     <= rn_prs1_busy1;
-                    IQ[i].prs2          <= rn_prs2_1;
-                    IQ[i].immediate     <= rn_immout1; 
-                    IQ[i].prs2_busy     <= rn_prs2_busy1;
-                    IQ[i].alu_operation <= rn_alu_operation1;
-                    IQ[i].jump_reg      <= rn_jump_reg1;
-                    IQ[i].jump          <= rn_jump1; 
-                    IQ[i].branch        <= rn_branch1;
-                    IQ[i].regsrc1       <= rn_regsrc1_1;
-                    IQ[i].regsrc2       <= rn_regsrc2_1;
-                    IQ[i].immtype       <= rn_immtype1;
-                    IQ[i].isimm         <= rn_isimm1; 
-                    IQ[i].retaddr       <= rn_retaddr1;
-                    IQ[i].upperimm      <= rn_upperimm1;
-                    IQ[i].regwrite      <= rn_regwrite1;
-                    IQ[i].memwrite      <= rn_memwrite1;
-                    IQ[i].memtoreg      <= rn_memtoreg1; 
-                    IQ[i].branch_tag    <= rn_branch_tag;
-                    IQ[i].branch_mask   <= rn_branch_mask; 
-                    IQ[i].biq_address   <= rn_biq_address;
-                end
-                break;
-            end
-            for (int j=i; j < IQ_ROWS; j++) begin
-                if (IQ[j].available && rn_valid2) begin
-                    IQ[j].available     <= 0;
-                    IQ[j].pc            <= rn_pc;
-                    IQ[j].prd           <= rn_prd2; 
-                    IQ[j].prs1          <= rn_prs1_2;
-                    IQ[j].prs1_busy     <= rn_prs1_busy2;
-                    IQ[j].prs2          <= rn_prs2_2;
-                    IQ[j].immediate     <= rn_immout2; 
-                    IQ[j].prs2_busy     <= rn_prs2_busy2;
-                    IQ[j].alu_operation <= rn_alu_operation2;
-                    IQ[j].jump_reg      <= rn_jump_reg2;
-                    IQ[j].jump          <= rn_jump2; 
-                    IQ[j].branch        <= rn_branch2;
-                    IQ[j].regsrc1       <= rn_regsrc1_2;
-                    IQ[j].regsrc2       <= rn_regsrc2_2;
-                    IQ[j].immtype       <= rn_immtype2;
-                    IQ[j].isimm         <= rn_isimm2; 
-                    IQ[j].retaddr       <= rn_retaddr2;
-                    IQ[j].upperimm      <= rn_upperimm2;
-                    IQ[j].regwrite      <= rn_regwrite2;
-                    IQ[j].memwrite      <= rn_memwrite2;
-                    IQ[j].memtoreg      <= rn_memtoreg2; 
-                    IQ[j].branch_tag    <= rn_branch_tag;
-                    IQ[j].branch_mask   <= rn_branch_mask; 
-                    IQ[j].biq_address   <= rn_biq_address;
-                end
-                break;
+        if (reset) begin
+            for (int i = 0; i < IQ_ROWS; i++) begin
+                IQ[i].available <= 1;
             end
         end
-        
+        else begin
+            for (int i = 0; i < IQ_ROWS; i++) begin
+                //if instruction is flushed
+                if (flush && !IQ[i].available && IQ[i].branch_mask[cdb_branch_tag]) begin
+                    IQ[i].available <= 1'b1;
+                end
+                //if the instruction is not flushed
+                else if (!IQ[i].available) begin 
+                    // wake up prs1
+                    if (IQ[i].prs1_busy) begin
+                        if ((cdb_wakeup1 && (IQ[i].prs1 == cdb_waked_reg1)) || 
+                            (cdb_wakeup2 && (IQ[i].prs1 == cdb_waked_reg2))) begin
+                            IQ[i].prs1_busy <= 1'b0;
+                        end
+                    end
+                    // wake up prs2
+                    if (IQ[i].prs2_busy) begin
+                        if ((cdb_wakeup1 && (IQ[i].prs2 == cdb_waked_reg1)) || 
+                            (cdb_wakeup2 && (IQ[i].prs2 == cdb_waked_reg2))) begin
+                            IQ[i].prs2_busy <= 1'b0;
+                        end
+                    end
+                end
+            end 
+            if(!stall_frontend && !iq_full) begin
+                if (alloc1_found && rn_valid1) begin
+                    IQ[iq_alloc_index1].available     <= 0;
+                    IQ[iq_alloc_index1].pc            <= rn_pc;
+                    IQ[iq_alloc_index1].prd           <= rn_prd1; 
+                    IQ[iq_alloc_index1].prs1          <= rn_prs1_1;
+                    IQ[iq_alloc_index1].prs1_busy     <= rn_prs1_busy1;
+                    IQ[iq_alloc_index1].prs2          <= rn_prs2_1;
+                    IQ[iq_alloc_index1].immediate     <= rn_immout1; 
+                    IQ[iq_alloc_index1].prs2_busy     <= rn_prs2_busy1;
+                    IQ[iq_alloc_index1].alu_operation <= rn_alu_operation1;
+                    IQ[iq_alloc_index1].jump_reg      <= rn_jump_reg1;
+                    IQ[iq_alloc_index1].jump          <= rn_jump1; 
+                    IQ[iq_alloc_index1].branch        <= rn_branch1;
+                    IQ[iq_alloc_index1].regsrc1       <= rn_regsrc1_1;
+                    IQ[iq_alloc_index1].regsrc2       <= rn_regsrc2_1;
+                    IQ[iq_alloc_index1].immtype       <= rn_immtype1;
+                    IQ[iq_alloc_index1].isimm         <= rn_isimm1; 
+                    IQ[iq_alloc_index1].retaddr       <= rn_retaddr1;
+                    IQ[iq_alloc_index1].upperimm      <= rn_upperimm1;
+                    IQ[iq_alloc_index1].regwrite      <= rn_regwrite1;
+                    IQ[iq_alloc_index1].memwrite      <= rn_memwrite1;
+                    IQ[iq_alloc_index1].memtoreg      <= rn_memtoreg1; 
+                    IQ[iq_alloc_index1].branch_tag    <= rn_branch_tag;
+                    IQ[iq_alloc_index1].branch_mask   <= rn_branch_mask; 
+                    IQ[iq_alloc_index1].biq_address   <= rn_biq_address;
+                end
+                if (alloc2_found && rn_valid2) begin
+                    IQ[iq_alloc_index2].available     <= 0;
+                    IQ[iq_alloc_index2].pc            <= rn_pc;
+                    IQ[iq_alloc_index2].prd           <= rn_prd2; 
+                    IQ[iq_alloc_index2].prs1          <= rn_prs1_2;
+                    IQ[iq_alloc_index2].prs1_busy     <= rn_prs1_busy2;
+                    IQ[iq_alloc_index2].prs2          <= rn_prs2_2;
+                    IQ[iq_alloc_index2].immediate     <= rn_immout2; 
+                    IQ[iq_alloc_index2].prs2_busy     <= rn_prs2_busy2;
+                    IQ[iq_alloc_index2].alu_operation <= rn_alu_operation2;
+                    IQ[iq_alloc_index2].jump_reg      <= rn_jump_reg2;
+                    IQ[iq_alloc_index2].jump          <= rn_jump2; 
+                    IQ[iq_alloc_index2].branch        <= rn_branch2;
+                    IQ[iq_alloc_index2].regsrc1       <= rn_regsrc1_2;
+                    IQ[iq_alloc_index2].regsrc2       <= rn_regsrc2_2;
+                    IQ[iq_alloc_index2].immtype       <= rn_immtype2;
+                    IQ[iq_alloc_index2].isimm         <= rn_isimm2; 
+                    IQ[iq_alloc_index2].retaddr       <= rn_retaddr2;
+                    IQ[iq_alloc_index2].upperimm      <= rn_upperimm2;
+                    IQ[iq_alloc_index2].regwrite      <= rn_regwrite2;
+                    IQ[iq_alloc_index2].memwrite      <= rn_memwrite2;
+                    IQ[iq_alloc_index2].memtoreg      <= rn_memtoreg2; 
+                    IQ[iq_alloc_index2].branch_tag    <= rn_branch_tag;
+                    IQ[iq_alloc_index2].branch_mask   <= rn_branch_mask; 
+                    IQ[iq_alloc_index2].biq_address   <= rn_biq_address;
+                end
+            end
+        end
     end
-    
+            
 endmodule
