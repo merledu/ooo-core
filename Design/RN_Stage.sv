@@ -12,6 +12,7 @@ module RN_Stage #(
 ) (
     input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2,
     input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
+    input logic id_is_m_extension1, id_is_m_extension2,
     input logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
     input logic id_immtype1, id_memwrite1,  id_immtype2, id_regsrc2_1,
     input logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
@@ -23,7 +24,7 @@ module RN_Stage #(
     input logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
     input logic [BIQ_ADDRESS-1:0] id_biq_address,
     input logic [XLEN-3:0] id_pc,
-    input logic [3:0] id_alu_operation1, id_alu_operation2,
+    input logic [4:0] id_alu_operation1, id_alu_operation2,
     
     output logic stall_frontend,
     output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_old_prd1, 
@@ -35,7 +36,9 @@ module RN_Stage #(
     output logic [XLEN-3:0] rn_pc,
     output logic [4:0] rn_rd_1, rn_rd_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] rn_immout1, rn_immout2,
-    output logic [3:0] rn_alu_operation1, rn_alu_operation2,
+    output logic rn_is_m_extension1, rn_is_m_extension2,
+
+    output logic [4:0] rn_alu_operation1, rn_alu_operation2,
     output logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, 
     output logic rn_regsrc1_1, rn_regsrc2_1, rn_immtype1, rn_isimm1, rn_retaddr1,
     output logic rn_upperimm1, rn_regwrite1, rn_memwrite1, rn_memtoreg1, 
@@ -62,6 +65,7 @@ module RN_Stage #(
         rn_biq_address      <= id_biq_address;
         rn_pc               <= id_pc;
         // Instruction 1 Control Signals
+        rn_is_m_extension1  <= id_is_m_extension1;
         rn_rd_1             <= id_rd_1;
         rn_valid1           <= id_valid1 && !flush && !stall_frontend;
         rn_immout1          <= id_immout1;
@@ -79,6 +83,7 @@ module RN_Stage #(
         rn_memtoreg1        <= id_memtoreg1;
         rn_retaddr1         <= id_retaddr1;
         // Instruction 2 Control Signals
+        rn_is_m_extension2  <= id_is_m_extension2;
         rn_rd_2             <= id_rd_2;
         rn_valid2           <= id_valid2 && !flush && !stall_frontend;
         rn_immout2          <= id_immout2;

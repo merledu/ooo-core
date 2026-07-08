@@ -28,7 +28,8 @@ module ID_Stage #(
     output logic [XLEN-3:0] id_pc,
     output logic [GHR_SIZE-1:0] id_biq_restore_ghr,
     output logic [PHT_ADDRESS-1:0] id_biq_pht_index,
-    output logic [3:0] id_alu_operation1, id_alu_operation2,
+    output logic [4:0] id_alu_operation1, id_alu_operation2,
+    output logic id_is_m_extension1, id_is_m_extension2,
     output logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
     output logic id_immtype1, id_memwrite1,  id_immtype2, id_biq_valid, id_biq_pred_taken, id_regsrc2_1,
     output logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
@@ -37,8 +38,9 @@ module ID_Stage #(
     logic [OPCODE_SIZE-1:0] opcode_1, opcode_2; 
     logic [2:0] ALUOp_1, ALUOp_2;
     logic [INIT_IMMEDIATE_SIZE-1:0] imm_out1, imm_out2;
-    logic [3:0] alu_operation1, alu_operation2;
+    logic [4:0] alu_operation1, alu_operation2;
     logic is_control_flow_instr;
+    logic is_m_extension1, is_m_extension2;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
     logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2;
@@ -73,6 +75,8 @@ module ID_Stage #(
 
             id_alu_operation1 <= alu_operation1;
             id_alu_operation2 <= alu_operation2;
+            id_is_m_extension1 <= is_m_extension1;
+            id_is_m_extension2 <= is_m_extension2;
             id_jump_reg1 <= JumpReg_1;
             id_jump_reg2 <= JumpReg_2;
             id_jump1 <= Jump_1;
@@ -104,35 +108,37 @@ module ID_Stage #(
     end
 
     CU cu_instantiation1 (
-        .opcode     (opcode_1),
-        .ALUOp      (ALUOp_1),
-        .JumpReg    (JumpReg_1),
-        .Jump       (Jump_1),
-        .Branch     (Branch_1),
-        .RegSrc1    (RegSrc1_1),
-        .RegSrc2    (RegSrc2_1),
-        .UpperImm   (UpperImm_1),
-        .RegWrite   (RegWrite_1),
-        .MemWrite   (MemWrite_1),
-        .MemToReg   (MemToReg_1),
-        .RetAddr    (RetAddr_1),
-        .imm        (Imm_1)
+        .opcode         (opcode_1),
+        .is_m_extension (is_m_extension1),
+        .ALUOp          (ALUOp_1),
+        .JumpReg        (JumpReg_1),
+        .Jump           (Jump_1),
+        .Branch         (Branch_1),
+        .RegSrc1        (RegSrc1_1),
+        .RegSrc2        (RegSrc2_1),
+        .UpperImm       (UpperImm_1),
+        .RegWrite       (RegWrite_1),
+        .MemWrite       (MemWrite_1),
+        .MemToReg       (MemToReg_1),
+        .RetAddr        (RetAddr_1),
+        .imm            (Imm_1)
     );
 
     CU cu_instantiation2 (
-        .opcode     (opcode_2),
-        .ALUOp      (ALUOp_2),
-        .JumpReg    (JumpReg_2),
-        .Jump       (Jump_2),
-        .Branch     (Branch_2),
-        .RegSrc1    (RegSrc1_2),
-        .RegSrc2    (RegSrc2_2),
-        .UpperImm   (UpperImm_2),
-        .RegWrite   (RegWrite_2),
-        .MemWrite   (MemWrite_2),
-        .MemToReg   (MemToReg_2),
-        .RetAddr    (RetAddr_2),
-        .imm        (Imm_2)
+        .opcode         (opcode_2),
+        .is_m_extension (is_m_extension2),
+        .ALUOp          (ALUOp_2),
+        .JumpReg        (JumpReg_2),
+        .Jump           (Jump_2),
+        .Branch         (Branch_2),
+        .RegSrc1        (RegSrc1_2),
+        .RegSrc2        (RegSrc2_2),
+        .UpperImm       (UpperImm_2),
+        .RegWrite       (RegWrite_2),
+        .MemWrite       (MemWrite_2),
+        .MemToReg       (MemToReg_2),
+        .RetAddr        (RetAddr_2),
+        .imm            (Imm_2)
     );
     
     IG ig_instantiation1(

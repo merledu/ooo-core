@@ -18,7 +18,8 @@ module IQ #(
     input logic [BIQ_ADDRESS-1:0] rn_biq_address,
     input logic [XLEN-3:0] rn_pc,
     input logic [INIT_IMMEDIATE_SIZE-1:0] rn_immout1, rn_immout2,
-    input logic [3:0] rn_alu_operation1, rn_alu_operation2,
+    input logic [4:0] rn_alu_operation1, rn_alu_operation2,
+    input logic rn_is_m_extension1, rn_is_m_extension2,
     input logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, 
     input logic rn_regsrc1_1, rn_regsrc2_1, rn_immtype1, rn_isimm1, rn_retaddr1,
     input logic rn_upperimm1, rn_regwrite1, rn_memwrite1, rn_memtoreg1, 
@@ -26,10 +27,34 @@ module IQ #(
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
 
-    output logic iq_full
+    output logic iq_full,
+    // Issued Instruction 1
+    output logic iss_valid1, iss_is_m_extension1, iss_jump_reg1, iss_jump1, iss_branch1, 
+    output logic iss_instr1_regsrc1, iss_instr1_regsrc2, iss_immtype1, iss_isimm1, iss_retaddr1,
+    output logic iss_upperimm1, iss_regwrite1, iss_memwrite1, iss_memtoreg1,
+    output logic [XLEN-3:0] iss_pc1,
+    output logic [PRF_ADDRESS-1:0] iss_prd1, iss_instr1_prs1, iss_instr1_prs2,
+    output logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate1,
+    output logic [4:0] iss_alu_operation1,
+    output logic [BTAG_SIZE-1:0] iss_branch_tag1,
+    output logic [MAX_BRANCHES-1:0] iss_branch_mask1,
+    output logic [BIQ_ADDRESS-1:0] iss_biq_address1,
+
+    // Issued Instruction 2
+    output logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
+    output logic iss_instr2_regsrc1, iss_instr2_regsrc2, iss_immtype2, iss_isimm2, iss_retaddr2,
+    output logic iss_upperimm2, iss_regwrite2, iss_memwrite2, iss_memtoreg2,
+    output logic [XLEN-3:0] iss_pc2,
+    output logic [PRF_ADDRESS-1:0] iss_prd2, iss_instr2_prs1, iss_instr2_prs2,
+    output logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate2,
+    output logic [4:0] iss_alu_operation2,
+    output logic [BTAG_SIZE-1:0] iss_branch_tag2,
+    output logic [MAX_BRANCHES-1:0] iss_branch_mask2,
+    output logic [BIQ_ADDRESS-1:0] iss_biq_address2
 );
     typedef struct packed {
         logic available;
+        logic is_m_extension;
         logic [XLEN-3:0] pc;
         logic [PRF_ADDRESS-1:0] prd; 
         logic [PRF_ADDRESS-1:0] prs1;
@@ -37,7 +62,7 @@ module IQ #(
         logic [PRF_ADDRESS-1:0] prs2; 
         logic [INIT_IMMEDIATE_SIZE-1:0] immediate;
         logic prs2_busy;
-        logic [3:0] alu_operation;
+        logic [4:0] alu_operation;
         logic jump_reg;
         logic jump;
         logic branch;
@@ -58,14 +83,17 @@ module IQ #(
     IQ_organization IQ [0:IQ_ROWS-1];
 
     logic [IQ_ADDRESS-1:0] iq_alloc_index1, iq_alloc_index2;
-    logic alloc1_found, alloc2_found;
+    logic alloc1_found, alloc2_found, fast_wakeup1, fast_wakeup2;
+    logic [PRF_ADDRESS-1:0] fast_waked_reg1, fast_waked_reg2;
+    logic [IQ_ADDRESS-1:0] issue_index1, issue_index2;
+    logic is_control_flow_instr, issue1_found, issue2_found;
 
     always_comb begin
         iq_alloc_index1   = '0;
         iq_alloc_index2   = '0;
-        alloc1_found = 1'b0;
-        alloc2_found = 1'b0;
-        iq_full = 0;
+        alloc1_found      = 1'b0;
+        alloc2_found      = 1'b0;
+        iq_full           = 0;
         
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (IQ[i].available && !alloc1_found) begin
@@ -94,8 +122,14 @@ module IQ #(
                 if (flush && !IQ[i].available && IQ[i].branch_mask[cdb_branch_tag]) begin
                     IQ[i].available <= 1'b1;
                 end
+                
                 //if the instruction is not flushed
                 else if (!IQ[i].available) begin 
+                    //if instruction is issued then free the slot
+                    if (!flush && ((issue1_found && (i == issue_index1))||(issue2_found && (i == issue_index2)))) begin
+                        IQ[i].available <= 1'b1;
+                    end
+
                     //clearing branch mask after correctly predicted
                     if (cdb_branch_resolved && cdb_branch_correct) begin
                         IQ[i].branch_mask[cdb_branch_tag] <= 1'b0;
@@ -103,22 +137,27 @@ module IQ #(
                     // wake up prs1
                     if (IQ[i].prs1_busy) begin
                         if ((cdb_wakeup1 && (IQ[i].prs1 == cdb_waked_reg1)) || 
-                            (cdb_wakeup2 && (IQ[i].prs1 == cdb_waked_reg2))) begin
+                            (cdb_wakeup2 && (IQ[i].prs1 == cdb_waked_reg2)) || 
+                            (fast_wakeup1 && (IQ[i].prs1 == fast_waked_reg1)) ||
+                            (fast_wakeup2 && (IQ[i].prs1 == fast_waked_reg2))) begin
                             IQ[i].prs1_busy <= 1'b0;
                         end
                     end
                     // wake up prs2
                     if (IQ[i].prs2_busy) begin
                         if ((cdb_wakeup1 && (IQ[i].prs2 == cdb_waked_reg1)) || 
-                            (cdb_wakeup2 && (IQ[i].prs2 == cdb_waked_reg2))) begin
+                            (cdb_wakeup2 && (IQ[i].prs2 == cdb_waked_reg2)) || 
+                            (fast_wakeup1 && (IQ[i].prs1 == fast_waked_reg1)) ||
+                            (fast_wakeup2 && (IQ[i].prs1 == fast_waked_reg2))) begin
                             IQ[i].prs2_busy <= 1'b0;
                         end
                     end
                 end
             end 
-            if(!stall_frontend && !iq_full) begin
+            if(!stall_frontend && !iq_full && !flush) begin
                 if (alloc1_found && rn_valid1) begin
                     IQ[iq_alloc_index1].available     <= 0;
+                    IQ[iq_alloc_index1].is_m_extension<= rn_is_m_extension1;
                     IQ[iq_alloc_index1].pc            <= rn_pc;
                     IQ[iq_alloc_index1].prd           <= rn_prd1; 
                     IQ[iq_alloc_index1].prs1          <= rn_prs1_1;
@@ -145,6 +184,7 @@ module IQ #(
                 end
                 if (alloc2_found && rn_valid2) begin
                     IQ[iq_alloc_index2].available     <= 0;
+                    IQ[iq_alloc_index2].is_m_extension<= rn_is_m_extension2;
                     IQ[iq_alloc_index2].pc            <= rn_pc + 1;
                     IQ[iq_alloc_index2].prd           <= rn_prd2; 
                     IQ[iq_alloc_index2].prs1          <= rn_prs1_2;
@@ -172,5 +212,100 @@ module IQ #(
             end
         end
     end
+
+    //issue stage 
+    always_comb begin
+        issue_index1 = '0;
+        issue_index2 = '0;
+        issue1_found = 0;
+        issue2_found = 0;
+        is_control_flow_instr = 0;
+        
+        //only 1 branch is executed in 1 cycle for simplicity
+        for (int i = 0; i < IQ_ROWS; i++) begin
+            if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue1_found) begin
+                issue_index1 = i;
+                is_control_flow_instr = (IQ[i].branch || IQ[i].jump);
+                issue1_found = 1'b1;
+            end
+            else if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue2_found && issue1_found && !is_control_flow_instr) begin
+                issue_index2 = i;
+                issue2_found = 1'b1;
+            end
+        end
+        // fast wakeup logic
+        fast_waked_reg1 = IQ[issue_index1].prd;
+        fast_waked_reg2 = IQ[issue_index2].prd;
+        fast_wakeup1    = issue1_found && !IQ[issue_index1].is_m_extension && !IQ[issue_index1].memtoreg && IQ[issue_index1].regwrite;
+        fast_wakeup2    = issue2_found && !IQ[issue_index2].is_m_extension && !IQ[issue_index2].memtoreg && IQ[issue_index2].regwrite;
+    end
+    //pipeline of issue stage
+    always_ff @(posedge CLK) begin
+        if (reset) begin
+            iss_valid1 <= 0;
+            iss_valid2 <= 0;
+        end
+        else begin 
+            if (issue1_found && !flush) begin
+                iss_valid1         <= 1'b1; 
+                iss_is_m_extension1<= IQ[issue_index1].is_m_extension;          
+                iss_pc1            <= IQ[issue_index1].pc;       
+                iss_prd1           <= IQ[issue_index1].prd;           
+                iss_instr1_prs1    <= IQ[issue_index1].prs1;        
+                iss_instr1_prs2    <= IQ[issue_index1].prs2;       
+                iss_immediate1     <= IQ[issue_index1].immediate;     
+                iss_alu_operation1 <= IQ[issue_index1].alu_operation;
+                iss_jump_reg1      <= IQ[issue_index1].jump_reg;     
+                iss_jump1          <= IQ[issue_index1].jump;         
+                iss_branch1        <= IQ[issue_index1].branch;        
+                iss_instr1_regsrc1 <= IQ[issue_index1].regsrc1;     
+                iss_instr1_regsrc2 <= IQ[issue_index1].regsrc2;     
+                iss_immtype1       <= IQ[issue_index1].immtype;       
+                iss_isimm1         <= IQ[issue_index1].isimm;          
+                iss_retaddr1       <= IQ[issue_index1].retaddr;      
+                iss_upperimm1      <= IQ[issue_index1].upperimm;      
+                iss_regwrite1      <= IQ[issue_index1].regwrite;      
+                iss_memwrite1      <= IQ[issue_index1].memwrite;      
+                iss_memtoreg1      <= IQ[issue_index1].memtoreg;      
+                iss_branch_tag1    <= IQ[issue_index1].branch_tag;    
+                iss_branch_mask1   <= IQ[issue_index1].branch_mask;   
+                iss_biq_address1   <= IQ[issue_index1].biq_address;  
+            end
+            else begin
+                iss_valid1         <= 1'b0;
+            end
+
+            if (issue2_found && !flush) begin
+                iss_valid2         <= 1'b1;     
+                iss_is_m_extension2<= IQ[issue_index2].is_m_extension;                   
+                iss_pc2            <= IQ[issue_index2].pc;       
+                iss_prd2           <= IQ[issue_index2].prd;           
+                iss_instr2_prs1    <= IQ[issue_index2].prs1;        
+                iss_instr2_prs2    <= IQ[issue_index2].prs2;       
+                iss_immediate2     <= IQ[issue_index2].immediate;     
+                iss_alu_operation2 <= IQ[issue_index2].alu_operation;
+                iss_jump_reg2      <= IQ[issue_index2].jump_reg;     
+                iss_jump2          <= IQ[issue_index2].jump;         
+                iss_branch2        <= IQ[issue_index2].branch;        
+                iss_instr2_regsrc1 <= IQ[issue_index2].regsrc1;     
+                iss_instr2_regsrc2 <= IQ[issue_index2].regsrc2;     
+                iss_immtype2       <= IQ[issue_index2].immtype;       
+                iss_isimm2         <= IQ[issue_index2].isimm;          
+                iss_retaddr2       <= IQ[issue_index2].retaddr;      
+                iss_upperimm2      <= IQ[issue_index2].upperimm;      
+                iss_regwrite2      <= IQ[issue_index2].regwrite;      
+                iss_memwrite2      <= IQ[issue_index2].memwrite;      
+                iss_memtoreg2      <= IQ[issue_index2].memtoreg;      
+                iss_branch_tag2    <= IQ[issue_index2].branch_tag;    
+                iss_branch_mask2   <= IQ[issue_index2].branch_mask;   
+                iss_biq_address2   <= IQ[issue_index2].biq_address; 
+            end
+            else begin
+                iss_valid2         <= 1'b0;
+            end
+        end
+    end
+
+
             
 endmodule
