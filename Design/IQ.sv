@@ -10,7 +10,7 @@ module IQ #(
     parameter ROB_SIZE = 64,
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
-    input logic CLK, reset, stall_frontend, flush, cdb_wakeup1, cdb_wakeup2,
+    input logic CLK, reset, rob_full, flush, cdb_wakeup1, cdb_wakeup2,
     input logic cdb_branch_resolved, cdb_branch_correct,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
@@ -103,11 +103,11 @@ module IQ #(
         
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (IQ[i].available && !alloc1_found) begin
-                iq_alloc_index1 = i;
+                iq_alloc_index1 = IQ_ADDRESS'(i);
                 alloc1_found = 1'b1;
             end 
             else if (IQ[i].available && alloc1_found && !alloc2_found) begin
-                iq_alloc_index2 = i;
+                iq_alloc_index2 = IQ_ADDRESS'(i);
                 alloc2_found = 1'b1;
             end
         end
@@ -132,7 +132,7 @@ module IQ #(
                 //if the instruction is not flushed
                 else if (!IQ[i].available) begin 
                     //if instruction is issued then free the slot
-                    if (!flush && ((issue1_found && (i == issue_index1))||(issue2_found && (i == issue_index2)))) begin
+                    if (!flush && ((issue1_found && (IQ_ADDRESS'(i) == issue_index1))||(issue2_found && (IQ_ADDRESS'(i) == issue_index2)))) begin
                         IQ[i].available <= 1'b1;
                     end
 
@@ -160,7 +160,7 @@ module IQ #(
                     end
                 end
             end 
-            if(!stall_frontend && !iq_full && !flush) begin
+            if(!rob_full && !iq_full && !flush) begin
                 if (alloc1_found && rn_valid1) begin
                     IQ[iq_alloc_index1].available     <= 0;
                     IQ[iq_alloc_index1].is_m_extension<= rn_is_m_extension1;
@@ -215,7 +215,7 @@ module IQ #(
                     IQ[iq_alloc_index2].branch_tag    <= rn_branch_tag;
                     IQ[iq_alloc_index2].branch_mask   <= rn_branch_mask; 
                     IQ[iq_alloc_index2].biq_address   <= rn_biq_address;
-                    IQ[iq_alloc_index2].rob_index     <= current_rob_index+1;
+                    IQ[iq_alloc_index2].rob_index     <= current_rob_index + 1;
                 end
             end
         end
@@ -232,12 +232,12 @@ module IQ #(
         //only 1 branch is executed in 1 cycle for simplicity
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue1_found) begin
-                issue_index1 = i;
+                issue_index1 = IQ_ADDRESS'(i);
                 is_control_flow_instr = (IQ[i].branch || IQ[i].jump);
                 issue1_found = 1'b1;
             end
             else if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue2_found && issue1_found && !is_control_flow_instr) begin
-                issue_index2 = i;
+                issue_index2 = IQ_ADDRESS'(i);
                 issue2_found = 1'b1;
             end
         end

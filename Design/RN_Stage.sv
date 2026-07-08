@@ -10,7 +10,7 @@ module RN_Stage #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
-    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2,
+    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, stall_frontend,
     input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
     input logic id_is_m_extension1, id_is_m_extension2,
     input logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
@@ -26,7 +26,7 @@ module RN_Stage #(
     input logic [XLEN-3:0] id_pc,
     input logic [4:0] id_alu_operation1, id_alu_operation2,
     
-    output logic stall_frontend,
+    output logic rn_stall_frontend,
     output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_old_prd1, 
     output logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2, rn_old_prd2,             
     output logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
@@ -59,7 +59,7 @@ module RN_Stage #(
    
     assign routed_freed_reg1 = fl_freed_reg1;
     assign routed_freed_reg2 = (pop1) ? fl_freed_reg2 : fl_freed_reg1;
-    assign stall_frontend = bs_full || fl_empty;
+    assign rn_stall_frontend = bs_full || fl_empty;
 
     always_ff @(posedge CLK) begin 
         rn_biq_address      <= id_biq_address;

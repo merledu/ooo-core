@@ -8,7 +8,7 @@ module DIS_Stage #(
     parameter MAX_BRANCHES = 4,
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES)
 ) (
-    input logic CLK, reset, flush, stall_frontend, branch_mispredicted,
+    input logic CLK, reset, flush, branch_mispredicted, stall_frontend,
     input logic cdb_done1, cdb_done2,cdb_wakeup1, cdb_wakeup2,cdb_branch_resolved, cdb_branch_correct,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
@@ -32,6 +32,8 @@ module DIS_Stage #(
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
      // input from cdb
     input logic [ROB_PTR_SIZE-1:0] cdb_branch_rob_index,
+     // for frontend
+    output logic dis_stall_frontend,
      // for commit 
     output logic commit_instr1, commit_instr2,
     output logic [PRF_ADDRESS-1:0] dis_free_old_prd1, dis_free_old_prd2,
@@ -68,7 +70,7 @@ module DIS_Stage #(
     logic rob_full, iq_full;           
     logic [ROB_PTR_SIZE-1:0] current_rob_index;
 
-    assign stall_frontend = stall_frontend || rob_full || iq_full;
+    assign dis_stall_frontend = rob_full || iq_full;
 
     ROB rob_instantiation (
         // ------------------- Globals & Control -------------------
@@ -76,8 +78,6 @@ module DIS_Stage #(
         .reset              (reset),
         .stall_frontend     (stall_frontend),
         .branch_mispredicted(branch_mispredicted),
-        // ------------------- From ROB -----------------------------
-        .current_rob_index  (current_rob_index),
         
         // ------------------- Dispatch/Rename Inputs -------------------
         .rn_valid1          (rn_valid1),
@@ -118,7 +118,7 @@ module DIS_Stage #(
         // ------------------- Globals & Control -------------------
         .CLK                (CLK),
         .reset              (reset),
-        .stall_frontend     (stall_frontend),
+        .rob_full           (rob_full),
         .flush              (flush),
         
         // ------------------- CDB & Branch Wakeups -------------------
@@ -158,6 +158,7 @@ module DIS_Stage #(
         .rn_branch_tag      (rn_branch_tag),
         .rn_branch_mask     (rn_branch_mask),
         .rn_biq_address     (rn_biq_address),
+        .current_rob_index  (current_rob_index),
 
         // ------------------- Dispatch Input: Instruction 2 -------------------
         .rn_valid2          (rn_valid2),

@@ -37,15 +37,15 @@ module ROB #(
     assign current_rob_index    = rob_tail_ptr[ROB_PTR_SIZE-1:0];
     assign rob_full             = (rob_count >= (ROB_PTR_SIZE+1)'(ROB_SIZE - 1));          
     assign completed1           = (rob_count > 0) && ROB[rob_head_ptr[ROB_PTR_SIZE-1:0]].done;
-    assign completed2           = (rob_count > 1) && ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0]+1)].done && completed1;
+    assign completed2           = (rob_count > 1) && ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].done && completed1;
     assign dis_free_old_prd1    = ROB[rob_head_ptr[ROB_PTR_SIZE-1:0]].old_prd;
-    assign dis_free_old_prd2    = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0]+1)].old_prd;
+    assign dis_free_old_prd2    = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].old_prd;
 
     assign comm_prd1            = ROB[rob_head_ptr[ROB_PTR_SIZE-1:0]].prd;
-    assign comm_prd2            = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0]+1)].prd;
+    assign comm_prd2            = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].prd;
 
     assign comm_rd1             = ROB[rob_head_ptr[ROB_PTR_SIZE-1:0]].rd;
-    assign comm_rd2             = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0]+1)].rd;
+    assign comm_rd2             = ROB[ROB_PTR_SIZE'(rob_head_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].rd;
 
     assign commit_instr1 = completed1;
     assign commit_instr2 = completed2;
@@ -59,7 +59,7 @@ module ROB #(
             rob_head_ptr <= rob_head_ptr + { {(ROB_PTR_SIZE){1'b0}}, completed1 } 
                                          + { {(ROB_PTR_SIZE){1'b0}}, completed2 };
             if (branch_mispredicted) begin
-                rob_tail_ptr <= {branch_wrap_bit, cdb_branch_rob_index} + 1'b1;
+                rob_tail_ptr <= {branch_wrap_bit, cdb_branch_rob_index} + ROB_PTR_SIZE'(1);
             end
             else if(!stall_frontend) begin
                 rob_tail_ptr <= rob_tail_ptr + { {(ROB_PTR_SIZE){1'b0}}, rn_valid1 } 
@@ -78,11 +78,12 @@ module ROB #(
                 ROB[rob_tail_ptr[ROB_PTR_SIZE-1:0]].rd            <= (rn_valid1)? rn_rd1 : rn_rd2;
                 ROB[rob_tail_ptr[ROB_PTR_SIZE-1:0]].old_prd       <= (rn_valid1)? rn_old_prd1 : rn_old_prd2;
                 //for 2nd instruction
-                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0]+1)].done        <= 0;
-                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0]+1)].prd         <= rn_prd2;
-                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0]+1)].rd          <= rn_rd2;
-                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0]+1)].old_prd     <= rn_old_prd2;
+                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].done        <= 0;
+                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].prd         <= rn_prd2;
+                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].rd          <= rn_rd2;
+                ROB[ROB_PTR_SIZE'(rob_tail_ptr[ROB_PTR_SIZE-1:0] + ROB_PTR_SIZE'(1))].old_prd     <= rn_old_prd2;
             end
         end
     end
 endmodule
+

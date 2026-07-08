@@ -7,7 +7,7 @@ module ID_Stage #(
     parameter INIT_IMMEDIATE_SIZE   = 21,
     parameter BIQ_ADDRESS           = 5
 ) (
-    input logic CLK, reset, flush, dis_biq_dealloc, if_pred_taken, 
+    input logic CLK, reset, flush, dis_biq_dealloc, if_pred_taken, stall_frontend,
     input logic if_valid1, if_valid2,
     input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target, 
     input logic [XLEN-3:0] if_pc,
@@ -19,7 +19,7 @@ module ID_Stage #(
     
     output logic [RAS_ADDRESS-1:0] id_biq_sp_snap,
     output logic [2*XLEN-1:0] id_biq_ras_snap,
-    output logic stall_frontend, id_take_snap, id_valid1, id_valid2,
+    output logic id_stall_frontend, id_take_snap, id_valid1, id_valid2,
     output logic [4:0] id_rs1_1, id_rs2_1, id_rd_1,
     output logic [4:0] id_rs1_2, id_rs2_2, id_rd_2,
     output logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2,
@@ -109,6 +109,7 @@ module ID_Stage #(
 
     CU cu_instantiation1 (
         .opcode         (opcode_1),
+        .funct7         (if_instr1[31:25]),
         .is_m_extension (is_m_extension1),
         .ALUOp          (ALUOp_1),
         .JumpReg        (JumpReg_1),
@@ -126,6 +127,7 @@ module ID_Stage #(
 
     CU cu_instantiation2 (
         .opcode         (opcode_2),
+        .funct7         (if_instr2[31:25]),
         .is_m_extension (is_m_extension2),
         .ALUOp          (ALUOp_2),
         .JumpReg        (JumpReg_2),
@@ -186,7 +188,7 @@ module ID_Stage #(
         
         // Outputs (to ROB)
         .biq_address     (id_biq_address),
-        .stall_frontend  (stall_frontend), //signal generated instantly
+        .stall_frontend  (id_stall_frontend), //signal generated instantly
         // Outputs (to Execute for Verification)
         .biq_pred_taken  (id_biq_pred_taken),
         .biq_pred_target (id_biq_pred_target),
