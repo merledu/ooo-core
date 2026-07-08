@@ -30,6 +30,8 @@ module DIS_Stage #(
     input logic rn_valid2, rn_jump_reg2, rn_jump2, rn_branch2, 
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
+     // input from cdb
+    input logic [ROB_PTR_SIZE-1:0] cdb_branch_rob_index,
      // for commit 
     output logic commit_instr1, commit_instr2,
     output logic [PRF_ADDRESS-1:0] dis_free_old_prd1, dis_free_old_prd2,
@@ -46,6 +48,7 @@ module DIS_Stage #(
     output logic [BTAG_SIZE-1:0] iss_branch_tag1,
     output logic [MAX_BRANCHES-1:0] iss_branch_mask1,
     output logic [BIQ_ADDRESS-1:0] iss_biq_address1,
+    output logic [ROB_PTR_SIZE-1:0] iss_rob_index1,
 
     // Issued Instruction 2
     output logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
@@ -57,11 +60,11 @@ module DIS_Stage #(
     output logic [4:0] iss_alu_operation2,
     output logic [BTAG_SIZE-1:0] iss_branch_tag2,
     output logic [MAX_BRANCHES-1:0] iss_branch_mask2,
-    output logic [BIQ_ADDRESS-1:0] iss_biq_address2
+    output logic [BIQ_ADDRESS-1:0] iss_biq_address2,
+    output logic [ROB_PTR_SIZE-1:0] iss_rob_index2
 );
 
 
-    logic [ROB_PTR_SIZE-1:0] branch_rob_index;
     logic rob_full, iq_full;           
     logic [ROB_PTR_SIZE-1:0] current_rob_index;
 
@@ -73,6 +76,8 @@ module DIS_Stage #(
         .reset              (reset),
         .stall_frontend     (stall_frontend),
         .branch_mispredicted(branch_mispredicted),
+        // ------------------- From ROB -----------------------------
+        .current_rob_index  (current_rob_index),
         
         // ------------------- Dispatch/Rename Inputs -------------------
         .rn_valid1          (rn_valid1),
@@ -89,7 +94,7 @@ module DIS_Stage #(
         .cdb_done2          (cdb_done2),
         .cdb_rob_index1     (cdb_rob_index1),
         .cdb_rob_index2     (cdb_rob_index2),
-        .branch_rob_index   (branch_rob_index),
+        .cdb_branch_rob_index(cdb_branch_rob_index),
 
         // ------------------- Status Outputs -------------------
         .rob_full           (rob_full),
@@ -176,6 +181,7 @@ module DIS_Stage #(
         .rn_regwrite2       (rn_regwrite2),
         .rn_memwrite2       (rn_memwrite2),
         .rn_memtoreg2       (rn_memtoreg2),
+        
 
         // ------------------- Outputs: Status -------------------
         .iq_full            (iq_full),
@@ -204,6 +210,7 @@ module DIS_Stage #(
         .iss_branch_tag1    (iss_branch_tag1),
         .iss_branch_mask1   (iss_branch_mask1),
         .iss_biq_address1   (iss_biq_address1),
+        .iss_rob_index1     (iss_rob_index1),
 
         // ------------------- Issued Output: Instruction 2 -------------------
         .iss_valid2         (iss_valid2),
@@ -228,7 +235,8 @@ module DIS_Stage #(
         .iss_alu_operation2 (iss_alu_operation2),
         .iss_branch_tag2    (iss_branch_tag2),
         .iss_branch_mask2   (iss_branch_mask2),
-        .iss_biq_address2   (iss_biq_address2)
+        .iss_biq_address2   (iss_biq_address2),
+        .iss_rob_index2     (iss_rob_index2)
     );
 
     

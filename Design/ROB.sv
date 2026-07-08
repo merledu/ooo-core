@@ -9,7 +9,7 @@ module ROB #(
     input logic [4:0] rn_rd1, rn_rd2,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prd2,
     input logic [PRF_ADDRESS-1:0]  rn_old_prd1, rn_old_prd2,   
-    input logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2, branch_rob_index,          
+    input logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2, cdb_branch_rob_index,          
 
     output logic rob_full, commit_instr1, commit_instr2,
     output logic [ROB_PTR_SIZE-1:0] current_rob_index,
@@ -32,7 +32,7 @@ module ROB #(
     logic completed1, completed2;
     logic branch_wrap_bit; //to find what should be at msb when recovery of tail pointer on misprediction
 
-    assign branch_wrap_bit      = rob_head_ptr[ROB_PTR_SIZE] ^ (branch_rob_index < rob_head_ptr[ROB_PTR_SIZE-1:0]);
+    assign branch_wrap_bit      = rob_head_ptr[ROB_PTR_SIZE] ^ (cdb_branch_rob_index < rob_head_ptr[ROB_PTR_SIZE-1:0]);
     assign rob_count            = rob_tail_ptr - rob_head_ptr; //it would never be negative cuz taking ptrsize + 1
     assign current_rob_index    = rob_tail_ptr[ROB_PTR_SIZE-1:0];
     assign rob_full             = (rob_count >= (ROB_PTR_SIZE+1)'(ROB_SIZE - 1));          
@@ -59,7 +59,7 @@ module ROB #(
             rob_head_ptr <= rob_head_ptr + { {(ROB_PTR_SIZE){1'b0}}, completed1 } 
                                          + { {(ROB_PTR_SIZE){1'b0}}, completed2 };
             if (branch_mispredicted) begin
-                rob_tail_ptr <= {branch_wrap_bit, branch_rob_index} + 1'b1;
+                rob_tail_ptr <= {branch_wrap_bit, cdb_branch_rob_index} + 1'b1;
             end
             else if(!stall_frontend) begin
                 rob_tail_ptr <= rob_tail_ptr + { {(ROB_PTR_SIZE){1'b0}}, rn_valid1 } 

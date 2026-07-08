@@ -6,7 +6,9 @@ module IQ #(
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES),
     parameter BIQ_ADDRESS = 5,
     parameter IQ_ROWS = 64,
-    parameter IQ_ADDRESS = $clog2(IQ_ROWS)
+    parameter IQ_ADDRESS = $clog2(IQ_ROWS),
+    parameter ROB_SIZE = 64,
+    parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
     input logic CLK, reset, stall_frontend, flush, cdb_wakeup1, cdb_wakeup2,
     input logic cdb_branch_resolved, cdb_branch_correct,
@@ -26,6 +28,7 @@ module IQ #(
     input logic rn_valid2, rn_jump_reg2, rn_jump2, rn_branch2, 
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
+    input logic [ROB_PTR_SIZE-1:0] current_rob_index,
 
     output logic iq_full,
     // Issued Instruction 1
@@ -39,6 +42,7 @@ module IQ #(
     output logic [BTAG_SIZE-1:0] iss_branch_tag1,
     output logic [MAX_BRANCHES-1:0] iss_branch_mask1,
     output logic [BIQ_ADDRESS-1:0] iss_biq_address1,
+    output logic [ROB_PTR_SIZE-1:0] iss_rob_index1,
 
     // Issued Instruction 2
     output logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
@@ -50,7 +54,8 @@ module IQ #(
     output logic [4:0] iss_alu_operation2,
     output logic [BTAG_SIZE-1:0] iss_branch_tag2,
     output logic [MAX_BRANCHES-1:0] iss_branch_mask2,
-    output logic [BIQ_ADDRESS-1:0] iss_biq_address2
+    output logic [BIQ_ADDRESS-1:0] iss_biq_address2,
+    output logic [ROB_PTR_SIZE-1:0] iss_rob_index2
 );
     typedef struct packed {
         logic available;
@@ -78,6 +83,7 @@ module IQ #(
         logic [BTAG_SIZE-1:0] branch_tag;
         logic [MAX_BRANCHES-1:0] branch_mask;
         logic [BIQ_ADDRESS-1:0] biq_address;
+        logic [ROB_PTR_SIZE-1:0] rob_index;
     } IQ_organization;
     
     IQ_organization IQ [0:IQ_ROWS-1];
@@ -181,6 +187,7 @@ module IQ #(
                     IQ[iq_alloc_index1].branch_tag    <= rn_branch_tag;
                     IQ[iq_alloc_index1].branch_mask   <= rn_branch_mask; 
                     IQ[iq_alloc_index1].biq_address   <= rn_biq_address;
+                    IQ[iq_alloc_index1].rob_index     <= current_rob_index;
                 end
                 if (alloc2_found && rn_valid2) begin
                     IQ[iq_alloc_index2].available     <= 0;
@@ -208,6 +215,7 @@ module IQ #(
                     IQ[iq_alloc_index2].branch_tag    <= rn_branch_tag;
                     IQ[iq_alloc_index2].branch_mask   <= rn_branch_mask; 
                     IQ[iq_alloc_index2].biq_address   <= rn_biq_address;
+                    IQ[iq_alloc_index2].rob_index     <= current_rob_index+1;
                 end
             end
         end
@@ -270,6 +278,7 @@ module IQ #(
                 iss_branch_tag1    <= IQ[issue_index1].branch_tag;    
                 iss_branch_mask1   <= IQ[issue_index1].branch_mask;   
                 iss_biq_address1   <= IQ[issue_index1].biq_address;  
+                iss_rob_index1     <= IQ[issue_index1].rob_index; 
             end
             else begin
                 iss_valid1         <= 1'b0;
@@ -299,6 +308,7 @@ module IQ #(
                 iss_branch_tag2    <= IQ[issue_index2].branch_tag;    
                 iss_branch_mask2   <= IQ[issue_index2].branch_mask;   
                 iss_biq_address2   <= IQ[issue_index2].biq_address; 
+                iss_rob_index2     <= IQ[issue_index2].rob_index; 
             end
             else begin
                 iss_valid2         <= 1'b0;
