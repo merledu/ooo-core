@@ -2,45 +2,27 @@
 module PC #(
     parameter XLEN = 32    
 )(  
-    input logic CLK, reset, mispredict, btb_hit1, btb_hit2, is_ret1, is_ret2, is_branch1, is_branch2, pred_taken1, pred_taken2,
-    input logic [XLEN-1:0] pred_target1, pred_target2, ret_addr1, ret_addr2, actual_target_address, 
-    output logic [XLEN-1:0] pc, write_pc_data, next_pc, final_pred_target1, final_pred_target2
+    input logic CLK, reset, flush, stall_frontend, is_return_instr, btb_hit, pht_pred_taken, btb_is_branch,
+    input logic [XLEN-1:0] ras_target_address, btb_target_address, ex_actual_target_address,
+    output logic [XLEN-1:0] next_pc
 );
-    logic is_branch_or_jump1, is_branch_or_jump2;
 
-    assign is_branch_or_jump1 = is_branch1 && pred_taken1 || !is_branch1; //!is_branch = jal, jalr 
-    assign is_branch_or_jump2 = is_branch2 && pred_taken2 || !is_branch2;
-    assign final_pred_target1 = (is_ret1)? ret_addr1: pred_target1;
-    assign final_pred_target2 = (is_ret2)? ret_addr2: pred_target2;
-
-    always_comb begin
-        if (reset) begin
-            write_pc_data = 0;
-        end
-        else if (mispredict) begin
-            write_pc_data = actual_target_address; //from ex stage
-        end
-        else if (btb_hit1 && (is_ret1 || is_branch_or_jump1)) begin
-            write_pc_data = final_pred_target1; //from btb or ras 
-        end
-        else if (btb_hit2 && (is_ret2 || is_branch_or_jump2)) begin
-            write_pc_data = final_pred_target2; //from btb or ras
-        end
-        else begin
-            write_pc_data = pc; //from pc register 
-        end
-   
-        next_pc = write_pc_data + 8;
-    end
     always_ff @(posedge CLK) begin
         if (reset) begin
-            pc <= 0;
+            next_pc <= -8;
         end
-        else if (mispredict) begin
-            pc <= write_pc_data;
+        else if (flush) begin
+            next_pc <= ex_actual_target_address; //from EX stage(actual target address)
         end
-        else begin
-            pc <= next_pc;
+        else if (is_return_instr) begin
+            next_pc <= ras_target_address; //from RAS
         end
+        else if (btb_hit && (pht_pred_taken || ~btb_is_branch)) begin
+            next_pc <= btb_target_address; //from BTB
+        end
+        else if (!stall_frontend) begin
+            next_pc <= next_pc + 8;
+        end
+        
     end
 endmodule

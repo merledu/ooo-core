@@ -2,9 +2,9 @@ module PHT #(
   parameter PHT_ADDRESS  = 9,
   parameter COUNTER_SIZE = 2
 )(
-    input logic CLK, reset, actual_taken, update_pht,
-    input logic [PHT_ADDRESS-1:0] pht_index1, pht_index2, rb_pht_index, 
-    output logic pred_taken1, pred_taken2
+    input logic CLK, reset, ex_actual_taken, update_pht,
+    input logic [PHT_ADDRESS-1:0] pht_index, rb_pht_index, 
+    output logic pred_taken
 );
     (* ram_style = "distributed" *) logic [COUNTER_SIZE-1:0] PHT [0:(1<<PHT_ADDRESS)-1];
 
@@ -34,10 +34,9 @@ module PHT #(
 
     always_ff @(posedge CLK) begin
         if (update_pht) begin
-            PHT[rb_pht_index] <= train_pht(.current_state(PHT[rb_pht_index]), .taken(actual_taken));
+            PHT[rb_pht_index] <= train_pht(.current_state(PHT[rb_pht_index]), .taken(ex_actual_taken));
         end
-        pred_taken1 <= PHT[pht_index1][1];
-        pred_taken2 <= PHT[pht_index2][1];
+        pred_taken <= PHT[pht_index][1];
     end
 
 endmodule
