@@ -43,7 +43,7 @@ module ID_Stage #(
     logic is_m_extension1, is_m_extension2;
     logic JumpReg_1, JumpReg_2, Jump_1, Jump_2, Branch_1, Branch_2, RegSrc1_1, RegSrc2_1, RegSrc1_2, RegSrc2_2; 
     logic RetAddr_1, UpperImm_1, UpperImm_2, RegWrite_1, RegWrite_2, MemWrite_1, MemWrite_2, MemToReg_1;
-    logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2;
+    logic MemToReg_2, RetAddr_2, Imm_1, Imm_2, imm_type1, imm_type2, valid_opcode1, valid_opcode2;
     
     assign opcode_1 = if_instr1[OPCODE_SIZE-1:0];
     assign opcode_2 = if_instr2[OPCODE_SIZE-1:0];
@@ -59,8 +59,8 @@ module ID_Stage #(
             id_take_snap <= 0;
         end
         else if (!stall_frontend) begin
-            id_valid1 <= (!flush && if_valid1); 
-            id_valid2 <= (!flush && if_valid2); 
+            id_valid1 <= (!flush && if_valid1 && valid_opcode1); 
+            id_valid2 <= (!flush && if_valid2 && valid_opcode2); 
             id_take_snap <= is_control_flow_instr;
             id_pc <= if_pc;
             
@@ -122,7 +122,8 @@ module ID_Stage #(
         .MemWrite       (MemWrite_1),
         .MemToReg       (MemToReg_1),
         .RetAddr        (RetAddr_1),
-        .imm            (Imm_1)
+        .imm            (Imm_1),
+        .valid_opcode   (valid_opcode1)
     );
 
     CU cu_instantiation2 (
@@ -140,16 +141,17 @@ module ID_Stage #(
         .MemWrite       (MemWrite_2),
         .MemToReg       (MemToReg_2),
         .RetAddr        (RetAddr_2),
-        .imm            (Imm_2)
+        .imm            (Imm_2),
+        .valid_opcode   (valid_opcode2)
     );
     
-    IG ig_instantiation1(
+    IG21 ig_instantiation1(
         .instruction        (if_instr1),
         .immediate_output   (imm_out1),
         .imm_type           (imm_type1)
     );
 
-    IG ig_instantiation2(
+    IG21 ig_instantiation2(
         .instruction        (if_instr2),
         .immediate_output   (imm_out2),
         .imm_type           (imm_type2)

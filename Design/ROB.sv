@@ -26,7 +26,7 @@ module ROB #(
     } ROB_organization;
 
     
-    ROB_organization ROB [ROB_SIZE-1:0];
+    (* ram_style = "distributed" *) ROB_organization ROB [ROB_SIZE-1:0];
     logic [ROB_PTR_SIZE:0] rob_head_ptr, rob_tail_ptr;
     logic [ROB_PTR_SIZE:0] rob_count;
     logic completed1, completed2;

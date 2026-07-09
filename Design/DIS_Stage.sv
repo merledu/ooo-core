@@ -9,7 +9,7 @@ module DIS_Stage #(
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES)
 ) (
     input logic CLK, reset, flush, branch_mispredicted, stall_frontend,
-    input logic cdb_done1, cdb_done2,cdb_wakeup1, cdb_wakeup2,cdb_branch_resolved, cdb_branch_correct,
+    input logic cdb_done1, cdb_done2,cdb_wakeup1, cdb_wakeup2, cdb_branch_resolved, cdb_branch_correct,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2,
@@ -77,7 +77,7 @@ module DIS_Stage #(
         .CLK                (CLK),
         .reset              (reset),
         .stall_frontend     (stall_frontend),
-        .branch_mispredicted(branch_mispredicted),
+        .branch_mispredicted(flush),
         
         // ------------------- Dispatch/Rename Inputs -------------------
         .rn_valid1          (rn_valid1),

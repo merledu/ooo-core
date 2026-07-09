@@ -28,7 +28,7 @@ module main_datapath #(
     // -----------------------------------------
     input  logic actual_taken, mispredict, restore_ghr, restore_ras, update_pht, 
     input  logic update_btb, update_ras, ex_is_ret, ex_is_branch, ex_is_jalr,
-    input  logic branch_mispredicted, // Mapped to mispredict or driven independently
+    input  logic branch_mispredicted,
     input  logic [XLEN-1:0] actual_target_address, ex_pc,
     input  logic [GHR_SIZE-1:0] ghr_snap,
     input  logic [PHT_ADDRESS-1:0] rb_pht_index,
@@ -43,7 +43,7 @@ module main_datapath #(
     input  logic rr_slot_id,
 
     // -----------------------------------------
-    // Backend/Execution Signals for Rename & Dispatch Stages
+    // Backend/Execution Signals for Rename, Dispatch & RR Stages
     // -----------------------------------------
     input  logic cdb_done1, cdb_done2, cdb_wakeup1, cdb_wakeup2, 
     input  logic comm_free_push1, comm_free_push2, 
@@ -51,11 +51,16 @@ module main_datapath #(
     input  logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2, comm_free_reg1, comm_free_reg2,
     input  logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input  logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2, cdb_branch_rob_index,
+    
+    // CDB Write/Bypass Inputs for RR_Stage
+    input logic cdb_regwrite1, cdb_regwrite2,
+    input logic [PRF_ADDRESS-1:0] cdb_write_address1, cdb_write_address2,
+    input logic [XLEN-1:0] cdb_write_data1, cdb_write_data2,
 
     // -----------------------------------------
     // Outputs to Frontend / System
     // -----------------------------------------
-    output logic stall_frontend,     // Tells the rest of the CPU the Frontend is full
+    output logic stall_frontend,
     
     // -----------------------------------------
     // Outputs to ROB / Execute Stage (BIQ Metadata)
@@ -77,34 +82,36 @@ module main_datapath #(
     output logic [4:0] comm_rd1, comm_rd2,
 
     // -----------------------------------------
-    // Issued Instruction 1 (From Dispatch)
+    // Register Read Stage Outputs - Instruction 1
     // -----------------------------------------
-    output logic iss_valid1, iss_is_m_extension1, iss_jump_reg1, iss_jump1, iss_branch1, 
-    output logic iss_instr1_regsrc1, iss_instr1_regsrc2, iss_immtype1, iss_isimm1, iss_retaddr1,
-    output logic iss_upperimm1, iss_regwrite1, iss_memwrite1, iss_memtoreg1,
-    output logic [XLEN-3:0] iss_pc1,
-    output logic [PRF_ADDRESS-1:0] iss_prd1, iss_instr1_prs1, iss_instr1_prs2,
-    output logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate1,
-    output logic [4:0] iss_alu_operation1,
-    output logic [BTAG_SIZE-1:0] iss_branch_tag1,
-    output logic [MAX_BRANCHES-1:0] iss_branch_mask1,
-    output logic [BIQ_ADDRESS-1:0] iss_biq_address1,
-    output logic [ROB_PTR_SIZE-1:0] iss_rob_index1,
+    output logic [XLEN-1:0]                rr_instr1_read_data1, rr_instr1_read_data2,
+    output logic                           rr_valid1, rr_is_m_extension1, rr_jump_reg1, rr_jump1, rr_branch1,
+    output logic                           rr_instr1_regsrc1, rr_instr1_regsrc2, rr_isimm1, rr_retaddr1, rr_upperimm1,
+    output logic                           rr_regwrite1, rr_memwrite1, rr_memtoreg1,
+    output logic [XLEN-3:0]                rr_pc1,
+    output logic [PRF_ADDRESS-1:0]         rr_prd1,
+    output logic [XLEN-1:0]                rr_immediate1,
+    output logic [4:0]                     rr_alu_operation1,
+    output logic [BTAG_SIZE-1:0]           rr_branch_tag1,
+    output logic [MAX_BRANCHES-1:0]        rr_branch_mask1,
+    output logic [BIQ_ADDRESS-1:0]         rr_biq_address1,
+    output logic [ROB_PTR_SIZE-1:0]        rr_rob_index1,
 
     // -----------------------------------------
-    // Issued Instruction 2 (From Dispatch)
+    // Register Read Stage Outputs - Instruction 2
     // -----------------------------------------
-    output logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
-    output logic iss_instr2_regsrc1, iss_instr2_regsrc2, iss_immtype2, iss_isimm2, iss_retaddr2,
-    output logic iss_upperimm2, iss_regwrite2, iss_memwrite2, iss_memtoreg2,
-    output logic [XLEN-3:0] iss_pc2,
-    output logic [PRF_ADDRESS-1:0] iss_prd2, iss_instr2_prs1, iss_instr2_prs2,
-    output logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate2,
-    output logic [4:0] iss_alu_operation2,
-    output logic [BTAG_SIZE-1:0] iss_branch_tag2,
-    output logic [MAX_BRANCHES-1:0] iss_branch_mask2,
-    output logic [BIQ_ADDRESS-1:0] iss_biq_address2,
-    output logic [ROB_PTR_SIZE-1:0] iss_rob_index2
+    output logic [XLEN-1:0]                rr_instr2_read_data1, rr_instr2_read_data2,
+    output logic                           rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2,
+    output logic                           rr_instr2_regsrc1, rr_instr2_regsrc2, rr_isimm2, rr_retaddr2, rr_upperimm2,
+    output logic                           rr_regwrite2, rr_memwrite2, rr_memtoreg2,
+    output logic [XLEN-3:0]                rr_pc2,
+    output logic [PRF_ADDRESS-1:0]         rr_prd2,
+    output logic [XLEN-1:0]                rr_immediate2,
+    output logic [4:0]                     rr_alu_operation2,
+    output logic [BTAG_SIZE-1:0]           rr_branch_tag2,
+    output logic [MAX_BRANCHES-1:0]        rr_branch_mask2,
+    output logic [BIQ_ADDRESS-1:0]         rr_biq_address2,
+    output logic [ROB_PTR_SIZE-1:0]        rr_rob_index2
 );
 
     // ============================================================================
@@ -144,10 +151,8 @@ module main_datapath #(
     logic [4:0] id_rs1_1, id_rs2_1, id_rd_1, id_rs1_2, id_rs2_2, id_rd_2;
     
     logic id_jump_reg1, id_jump1, id_branch1, id_regsrc1_1, id_regsrc2_1, id_immtype1, id_memwrite1, id_regwrite1, id_memtoreg1, id_retaddr1, id_isimm1, id_upperimm1;
-    logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1;
-
     logic id_jump_reg2, id_jump2, id_branch2, id_regsrc1_2, id_regsrc2_2, id_immtype2, id_memwrite2, id_regwrite2, id_memtoreg2, id_retaddr2, id_isimm2, id_upperimm2;
-    logic [INIT_IMMEDIATE_SIZE-1:0] id_immout2;
+    logic [INIT_IMMEDIATE_SIZE-1:0] id_immout1, id_immout2;
 
     assign spec_return_address = (id_jump1) ? ({id_pc,2'b00} + 32'd4) : ({id_pc,2'b00} + 32'd8);
 
@@ -166,6 +171,31 @@ module main_datapath #(
     
     logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, rn_regsrc1_1, rn_regsrc2_1, rn_immtype1, rn_isimm1, rn_retaddr1, rn_upperimm1, rn_regwrite1, rn_memwrite1, rn_memtoreg1;
     logic rn_valid2, rn_jump_reg2, rn_jump2, rn_branch2, rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2, rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2;
+
+    // Dispatch -> Register Read Wires (Formerly Issue Outputs)
+    logic iss_valid1, iss_is_m_extension1, iss_jump_reg1, iss_jump1, iss_branch1;
+    logic iss_instr1_regsrc1, iss_instr1_regsrc2, iss_immtype1, iss_isimm1, iss_retaddr1;
+    logic iss_upperimm1, iss_regwrite1, iss_memwrite1, iss_memtoreg1;
+    logic [XLEN-3:0] iss_pc1;
+    logic [PRF_ADDRESS-1:0] iss_prd1, iss_instr1_prs1, iss_instr1_prs2;
+    logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate1;
+    logic [4:0] iss_alu_operation1;
+    logic [BTAG_SIZE-1:0] iss_branch_tag1;
+    logic [MAX_BRANCHES-1:0] iss_branch_mask1;
+    logic [BIQ_ADDRESS-1:0] iss_biq_address1;
+    logic [ROB_PTR_SIZE-1:0] iss_rob_index1;
+
+    logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2; 
+    logic iss_instr2_regsrc1, iss_instr2_regsrc2, iss_immtype2, iss_isimm2, iss_retaddr2;
+    logic iss_upperimm2, iss_regwrite2, iss_memwrite2, iss_memtoreg2;
+    logic [XLEN-3:0] iss_pc2;
+    logic [PRF_ADDRESS-1:0] iss_prd2, iss_instr2_prs1, iss_instr2_prs2;
+    logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate2;
+    logic [4:0] iss_alu_operation2;
+    logic [BTAG_SIZE-1:0] iss_branch_tag2;
+    logic [MAX_BRANCHES-1:0] iss_branch_mask2;
+    logic [BIQ_ADDRESS-1:0] iss_biq_address2;
+    logic [ROB_PTR_SIZE-1:0] iss_rob_index2;
 
     // ============================================================================
     // MODULE INSTANTIATIONS
@@ -350,8 +380,7 @@ module main_datapath #(
         .comm_free_push2         (comm_free_push2), 
         .cdb_branch_resolved     (cdb_branch_resolved),
         
-        .id_is_m_extension1      (id_is_m_extension1), 
-        .id_is_m_extension2      (id_is_m_extension2),
+        .id_is_m_extension1      (id_is_m_extension1), .id_is_m_extension2(id_is_m_extension2),
         .id_jump_reg1            (id_jump_reg1), .id_jump_reg2(id_jump_reg2), 
         .id_jump1                (id_jump1), .id_jump2(id_jump2), 
         .id_branch1              (id_branch1), .id_branch2(id_branch2), 
@@ -446,12 +475,13 @@ module main_datapath #(
         
         .cdb_branch_rob_index    (cdb_branch_rob_index),
         
-        // Exported Dispatch / Issue Outputs
+        // Exported Commit Outputs
         .commit_instr1           (commit_instr1), .commit_instr2(commit_instr2),
         .dis_free_old_prd1       (dis_free_old_prd1), .dis_free_old_prd2(dis_free_old_prd2),
         .comm_prd1               (comm_prd1), .comm_prd2(comm_prd2),
         .comm_rd1                (comm_rd1), .comm_rd2(comm_rd2),
         
+        // Internal Dispatch to RR Issue Connectors
         .iss_valid1              (iss_valid1), .iss_is_m_extension1(iss_is_m_extension1), .iss_jump_reg1(iss_jump_reg1), .iss_jump1(iss_jump1), .iss_branch1(iss_branch1), 
         .iss_instr1_regsrc1      (iss_instr1_regsrc1), .iss_instr1_regsrc2(iss_instr1_regsrc2), .iss_immtype1(iss_immtype1), .iss_isimm1(iss_isimm1), .iss_retaddr1(iss_retaddr1),
         .iss_upperimm1           (iss_upperimm1), .iss_regwrite1(iss_regwrite1), .iss_memwrite1(iss_memwrite1), .iss_memtoreg1(iss_memtoreg1),
@@ -475,6 +505,84 @@ module main_datapath #(
         .iss_branch_mask2        (iss_branch_mask2),
         .iss_biq_address2        (iss_biq_address2),
         .iss_rob_index2          (iss_rob_index2)
+    );
+
+    RR_Stage #(
+        .XLEN                    (XLEN),
+        .MAX_BRANCHES            (MAX_BRANCHES),
+        .BTAG_SIZE               (BTAG_SIZE),
+        .PRF_ADDRESS             (PRF_ADDRESS),
+        .INIT_IMMEDIATE_SIZE     (INIT_IMMEDIATE_SIZE),
+        .BIQ_ADDRESS             (BIQ_ADDRESS),
+        .ROB_SIZE                (ROB_SIZE),
+        .ROB_PTR_SIZE            (ROB_PTR_SIZE)
+    ) rr_stage_inst (
+        .CLK                     (CLK), 
+        .reset                   (reset), 
+        .flush                   (flush), 
+        
+        // CDB Bypass/Write Inputs
+        .cdb_regwrite1           (cdb_regwrite1), 
+        .cdb_regwrite2           (cdb_regwrite2),
+        .cdb_branch_tag          (cdb_branch_tag),
+        .cdb_write_address1      (cdb_write_address1), 
+        .cdb_write_address2      (cdb_write_address2),
+        .cdb_write_data1         (cdb_write_data1), 
+        .cdb_write_data2         (cdb_write_data2),
+        
+        // Issued Instruction 1 (From DIS)
+        .iss_valid1              (iss_valid1), .iss_is_m_extension1(iss_is_m_extension1), .iss_jump_reg1(iss_jump_reg1), .iss_jump1(iss_jump1), .iss_branch1(iss_branch1), 
+        .iss_instr1_regsrc1      (iss_instr1_regsrc1), .iss_instr1_regsrc2(iss_instr1_regsrc2), .iss_immtype1(iss_immtype1), .iss_isimm1(iss_isimm1), .iss_retaddr1(iss_retaddr1),
+        .iss_upperimm1           (iss_upperimm1), .iss_regwrite1(iss_regwrite1), .iss_memwrite1(iss_memwrite1), .iss_memtoreg1(iss_memtoreg1),
+        .iss_pc1                 (iss_pc1),
+        .iss_prd1                (iss_prd1), .iss_instr1_prs1(iss_instr1_prs1), .iss_instr1_prs2(iss_instr1_prs2),
+        .iss_immediate1          (iss_immediate1),
+        .iss_alu_operation1      (iss_alu_operation1),
+        .iss_branch_tag1         (iss_branch_tag1),
+        .iss_branch_mask1        (iss_branch_mask1),
+        .iss_biq_address1        (iss_biq_address1),
+        .iss_rob_index1          (iss_rob_index1),
+
+        // Issued Instruction 2 (From DIS)
+        .iss_valid2              (iss_valid2), .iss_is_m_extension2(iss_is_m_extension2), .iss_jump_reg2(iss_jump_reg2), .iss_jump2(iss_jump2), .iss_branch2(iss_branch2), 
+        .iss_instr2_regsrc1      (iss_instr2_regsrc1), .iss_instr2_regsrc2(iss_instr2_regsrc2), .iss_immtype2(iss_immtype2), .iss_isimm2(iss_isimm2), .iss_retaddr2(iss_retaddr2),
+        .iss_upperimm2           (iss_upperimm2), .iss_regwrite2(iss_regwrite2), .iss_memwrite2(iss_memwrite2), .iss_memtoreg2(iss_memtoreg2),
+        .iss_pc2                 (iss_pc2),
+        .iss_prd2                (iss_prd2), .iss_instr2_prs1(iss_instr2_prs1), .iss_instr2_prs2(iss_instr2_prs2),
+        .iss_immediate2          (iss_immediate2),
+        .iss_alu_operation2      (iss_alu_operation2),
+        .iss_branch_tag2         (iss_branch_tag2),
+        .iss_branch_mask2        (iss_branch_mask2),
+        .iss_biq_address2        (iss_biq_address2),
+        .iss_rob_index2          (iss_rob_index2),
+
+        // RR Outputs 1
+        .rr_instr1_read_data1    (rr_instr1_read_data1), .rr_instr1_read_data2(rr_instr1_read_data2),
+        .rr_valid1               (rr_valid1), .rr_is_m_extension1(rr_is_m_extension1), .rr_jump_reg1(rr_jump_reg1), .rr_jump1(rr_jump1), .rr_branch1(rr_branch1),
+        .rr_instr1_regsrc1       (rr_instr1_regsrc1), .rr_instr1_regsrc2(rr_instr1_regsrc2), .rr_isimm1(rr_isimm1), .rr_retaddr1(rr_retaddr1), .rr_upperimm1(rr_upperimm1),
+        .rr_regwrite1            (rr_regwrite1), .rr_memwrite1(rr_memwrite1), .rr_memtoreg1(rr_memtoreg1),
+        .rr_pc1                  (rr_pc1),
+        .rr_prd1                 (rr_prd1),
+        .rr_immediate1           (rr_immediate1),
+        .rr_alu_operation1       (rr_alu_operation1),
+        .rr_branch_tag1          (rr_branch_tag1),
+        .rr_branch_mask1         (rr_branch_mask1),
+        .rr_biq_address1         (rr_biq_address1),
+        .rr_rob_index1           (rr_rob_index1),
+        
+        // RR Outputs 2
+        .rr_instr2_read_data1    (rr_instr2_read_data1), .rr_instr2_read_data2(rr_instr2_read_data2),
+        .rr_valid2               (rr_valid2), .rr_is_m_extension2(rr_is_m_extension2), .rr_jump_reg2(rr_jump_reg2), .rr_jump2(rr_jump2), .rr_branch2(rr_branch2),
+        .rr_instr2_regsrc1       (rr_instr2_regsrc1), .rr_instr2_regsrc2(rr_instr2_regsrc2), .rr_isimm2(rr_isimm2), .rr_retaddr2(rr_retaddr2), .rr_upperimm2(rr_upperimm2),
+        .rr_regwrite2            (rr_regwrite2), .rr_memwrite2(rr_memwrite2), .rr_memtoreg2(rr_memtoreg2),
+        .rr_pc2                  (rr_pc2),
+        .rr_prd2                 (rr_prd2),
+        .rr_immediate2           (rr_immediate2),
+        .rr_alu_operation2       (rr_alu_operation2),
+        .rr_branch_tag2          (rr_branch_tag2),
+        .rr_branch_mask2         (rr_branch_mask2),
+        .rr_biq_address2         (rr_biq_address2),
+        .rr_rob_index2           (rr_rob_index2)
     );
 
 endmodule

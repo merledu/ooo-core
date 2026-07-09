@@ -13,6 +13,7 @@ module tb_main_datapath();
     localparam BTAG_SIZE           = $clog2(MAX_BRANCHES);
     localparam ROB_SIZE            = 64;
     localparam ROB_PTR_SIZE        = $clog2(ROB_SIZE);
+    localparam NUM_PHY_REG         = 1 << PRF_ADDRESS;
 
     // Clock and Reset
     logic CLK, reset, flush;
@@ -39,6 +40,11 @@ module tb_main_datapath();
     logic [BTAG_SIZE-1:0] cdb_branch_tag;
     logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2, cdb_branch_rob_index;
 
+    // CDB Write/Bypass Inputs for RR_Stage
+    logic cdb_regwrite1, cdb_regwrite2;
+    logic [PRF_ADDRESS-1:0] cdb_write_address1, cdb_write_address2;
+    logic [XLEN-1:0] cdb_write_data1, cdb_write_data2;
+
     // Output Signals
     logic stall_frontend;
     
@@ -55,30 +61,34 @@ module tb_main_datapath();
     logic [PRF_ADDRESS-1:0] dis_free_old_prd1, dis_free_old_prd2, comm_prd1, comm_prd2;
     logic [4:0] comm_rd1, comm_rd2;
     
-    // Issue Signals (Instruction 1 & 2)
-    logic iss_valid1, iss_is_m_extension1, iss_jump_reg1, iss_jump1, iss_branch1;
-    logic iss_instr1_regsrc1, iss_instr1_regsrc2, iss_immtype1, iss_isimm1, iss_retaddr1;
-    logic iss_upperimm1, iss_regwrite1, iss_memwrite1, iss_memtoreg1;
-    logic [XLEN-3:0] iss_pc1;
-    logic [PRF_ADDRESS-1:0] iss_prd1, iss_instr1_prs1, iss_instr1_prs2;
-    logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate1;
-    logic [4:0] iss_alu_operation1;
-    logic [BTAG_SIZE-1:0] iss_branch_tag1;
-    logic [MAX_BRANCHES-1:0] iss_branch_mask1;
-    logic [BIQ_ADDRESS-1:0] iss_biq_address1;
-    logic [ROB_PTR_SIZE-1:0] iss_rob_index1;
+    // RR Stage Outputs (Instruction 1)
+    logic [XLEN-1:0] rr_instr1_read_data1, rr_instr1_read_data2;
+    logic rr_valid1, rr_is_m_extension1, rr_jump_reg1, rr_jump1, rr_branch1;
+    logic rr_instr1_regsrc1, rr_instr1_regsrc2, rr_isimm1, rr_retaddr1, rr_upperimm1;
+    logic rr_regwrite1, rr_memwrite1, rr_memtoreg1;
+    logic [XLEN-3:0] rr_pc1;
+    logic [PRF_ADDRESS-1:0] rr_prd1;
+    logic [XLEN-1:0] rr_immediate1; // Changed to XLEN-1:0 to match RR output
+    logic [4:0] rr_alu_operation1;
+    logic [BTAG_SIZE-1:0] rr_branch_tag1;
+    logic [MAX_BRANCHES-1:0] rr_branch_mask1;
+    logic [BIQ_ADDRESS-1:0] rr_biq_address1;
+    logic [ROB_PTR_SIZE-1:0] rr_rob_index1;
 
-    logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2;
-    logic iss_instr2_regsrc1, iss_instr2_regsrc2, iss_immtype2, iss_isimm2, iss_retaddr2;
-    logic iss_upperimm2, iss_regwrite2, iss_memwrite2, iss_memtoreg2;
-    logic [XLEN-3:0] iss_pc2;
-    logic [PRF_ADDRESS-1:0] iss_prd2, iss_instr2_prs1, iss_instr2_prs2;
-    logic [INIT_IMMEDIATE_SIZE-1:0] iss_immediate2;
-    logic [4:0] iss_alu_operation2;
-    logic [BTAG_SIZE-1:0] iss_branch_tag2;
-    logic [MAX_BRANCHES-1:0] iss_branch_mask2;
-    logic [BIQ_ADDRESS-1:0] iss_biq_address2;
-    logic [ROB_PTR_SIZE-1:0] iss_rob_index2;
+    // RR Stage Outputs (Instruction 2)
+    logic [XLEN-1:0] rr_instr2_read_data1, rr_instr2_read_data2;
+    logic rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2;
+    logic rr_instr2_regsrc1, rr_instr2_regsrc2, rr_isimm2, rr_retaddr2, rr_upperimm2;
+    logic rr_regwrite2, rr_memwrite2, rr_memtoreg2;
+    logic [XLEN-3:0] rr_pc2;
+    logic [PRF_ADDRESS-1:0] rr_prd2;
+    logic [XLEN-1:0] rr_immediate2; // Changed to XLEN-1:0 to match RR output
+    logic [4:0] rr_alu_operation2;
+    logic [BTAG_SIZE-1:0] rr_branch_tag2;
+    logic [MAX_BRANCHES-1:0] rr_branch_mask2;
+    logic [BIQ_ADDRESS-1:0] rr_biq_address2;
+    logic [ROB_PTR_SIZE-1:0] rr_rob_index2;
+
 
     // DUT Instantiation
     main_datapath #(
@@ -103,14 +113,26 @@ module tb_main_datapath();
         {cdb_done1, cdb_done2, cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved, cdb_branch_correct} = '0;
         {cdb_waked_reg1, cdb_waked_reg2, comm_free_reg1, comm_free_reg2, cdb_branch_tag} = '0;
         {cdb_rob_index1, cdb_rob_index2, cdb_branch_rob_index} = '0;
+        
+        // Initialize new RR CDB inputs
+        {cdb_regwrite1, cdb_regwrite2} = '0;
+        {cdb_write_address1, cdb_write_address2} = '0;
+        {cdb_write_data1, cdb_write_data2} = '0;
 
         #10 reset = 0;
         #60;
 
         // Example trigger for verification
         cdb_wakeup1 = 1; cdb_waked_reg1 = 6'd1;
+        
+        // Simulate a writeback that the RR stage might need to bypass
+        cdb_regwrite1 = 1;
+        cdb_write_address1 = 6'd1;
+        cdb_write_data1 = 32'hDEADBEEF;
         #10;
+        
         cdb_wakeup1 = 0;
+        cdb_regwrite1 = 0;
 
         #100 $finish;
     end
