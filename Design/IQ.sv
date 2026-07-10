@@ -10,7 +10,7 @@ module IQ #(
     parameter ROB_SIZE = 64,
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
-    input logic CLK, reset, rob_full, flush, cdb_wakeup1, cdb_wakeup2,
+    input logic CLK, reset, rob_full, flush, cdb_wakeup1, cdb_wakeup2, cdb_mul_busy, cdb_div_busy,
     input logic cdb_branch_resolved, cdb_branch_correct,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
@@ -93,6 +93,8 @@ module IQ #(
     logic [PRF_ADDRESS-1:0] fast_waked_reg1, fast_waked_reg2;
     logic [IQ_ADDRESS-1:0] issue_index1, issue_index2;
     logic is_control_flow_instr, issue1_found, issue2_found;
+
+    logic iss1_mul,iss1_div,iss2_mul,iss2_div, alu_structural_hazard;
 
     always_comb begin
         iq_alloc_index1   = '0;
@@ -228,17 +230,31 @@ module IQ #(
         issue1_found = 0;
         issue2_found = 0;
         is_control_flow_instr = 0;
+        iss1_mul =0;
+        iss1_div =0;
+        iss2_mul =0;
+        iss2_div =0;
+        alu_structural_hazard = 0;
         
         //only 1 branch is executed in 1 cycle for simplicity
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue1_found) begin
                 issue_index1 = IQ_ADDRESS'(i);
                 is_control_flow_instr = (IQ[i].branch || IQ[i].jump);
-                issue1_found = 1'b1;
+
+                iss1_mul = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b100);
+                iss1_div = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b101 || IQ[i].alu_operation[4:2] == 3'b110);
+                issue1_found = !(iss1_mul && cdb_mul_busy) && !(iss1_div && cdb_div_busy);
             end
             else if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue2_found && issue1_found && !is_control_flow_instr) begin
-                issue_index2 = IQ_ADDRESS'(i);
-                issue2_found = 1'b1;
+                iss2_mul = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b100);
+                iss2_div = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b101 || IQ[i].alu_operation[4:2] == 3'b110);
+                alu_structural_hazard = (iss1_mul && iss2_mul) || (iss1_div && iss2_div);
+                if (!alu_structural_hazard) begin
+                    issue_index2 = IQ_ADDRESS'(i);
+                    issue2_found = !(iss2_mul && cdb_mul_busy) && !(iss2_div && cdb_div_busy);                    
+                end
+                
             end
         end
         // fast wakeup logic

@@ -8,8 +8,8 @@ module DIS_Stage #(
     parameter MAX_BRANCHES = 4,
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES)
 ) (
-    input logic CLK, reset, flush, branch_mispredicted, stall_frontend,
-    input logic cdb_done1, cdb_done2,cdb_wakeup1, cdb_wakeup2, cdb_branch_resolved, cdb_branch_correct,
+    input logic CLK, reset, flush, stall_frontend, cdb_mul_busy, cdb_div_busy,
+    input logic cdb_done1, cdb_done2,cdb_wakeup1, cdb_wakeup2, cdb_branch_resolved,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [ROB_PTR_SIZE-1:0] cdb_rob_index1, cdb_rob_index2,
@@ -122,10 +122,12 @@ module DIS_Stage #(
         .flush              (flush),
         
         // ------------------- CDB & Branch Wakeups -------------------
+        .cdb_mul_busy       (cdb_mul_busy),
+        .cdb_div_busy       (cdb_div_busy),
         .cdb_wakeup1        (cdb_wakeup1),
         .cdb_wakeup2        (cdb_wakeup2),
         .cdb_branch_resolved(cdb_branch_resolved),
-        .cdb_branch_correct (cdb_branch_correct),
+        .cdb_branch_correct (!flush),
         .cdb_waked_reg1     (cdb_waked_reg1),
         .cdb_waked_reg2     (cdb_waked_reg2),
         .cdb_branch_tag     (cdb_branch_tag),
