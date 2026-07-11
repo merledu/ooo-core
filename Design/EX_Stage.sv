@@ -1,12 +1,18 @@
 module EX_Stage #(
     parameter XLEN = 32,
     parameter PRF_ADDRESS = 6,
-    parameter ROB_PTR_SIZE = 6
+    parameter ROB_PTR_SIZE = 6,
+    parameter MAX_BRANCHES = 4,
+    parameter BTAG_SIZE = $clog2(MAX_BRANCHES),
+    parameter BIQ_ADDRESS = 5
 ) (
     input logic CLK, reset,
+    input logic biq_pred_taken1, biq_pred_taken2,
+    input logic [XLEN-1:0] biq_pred_target1, biq_pred_target2,
     input logic [XLEN-1:0] rr_instr1_read_data1, rr_instr1_read_data2,
     input logic [XLEN-1:0] rr_instr2_read_data1, rr_instr2_read_data2,
-    // Instruction 1 inputs
+    
+    // Instruction 1 
     input logic rr_valid1, rr_is_m_extension1, rr_jump_reg1, rr_jump1, rr_branch1,
     input logic rr_instr1_regsrc1, rr_instr1_regsrc2, rr_isimm1, rr_retaddr1, rr_upperimm1,
     input logic rr_regwrite1, rr_memwrite1, rr_memtoreg1,
@@ -18,7 +24,8 @@ module EX_Stage #(
     input logic [MAX_BRANCHES-1:0]        rr_branch_mask1,
     input logic [BIQ_ADDRESS-1:0]         rr_biq_address1,
     input logic [ROB_PTR_SIZE-1:0]        rr_rob_index1,
-    // Instruction 2 inputs
+    
+    // Instruction 2 
     input logic rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2,
     input logic rr_instr2_regsrc1, rr_instr2_regsrc2, rr_isimm2, rr_retaddr2, rr_upperimm2,
     input logic rr_regwrite2, rr_memwrite2, rr_memtoreg2,
@@ -30,109 +37,209 @@ module EX_Stage #(
     input logic [MAX_BRANCHES-1:0]        rr_branch_mask2,
     input logic [BIQ_ADDRESS-1:0]         rr_biq_address2,
     input logic [ROB_PTR_SIZE-1:0]        rr_rob_index2,
-    
-    output logic [XLEN-1:0] cdb_result,
-    output logic [PRF_ADDRESS-1:0] cdb_prd,
-    output logic [ROB_PTR_SIZE-1:0] cdb_rob_index
+
+
+
+    output logic flush,
+    output logic [BTAG_SIZE-1:0] cdb_branch_tag,
+    output logic cdb_branch_resolved,
+    output logic cdb_branch_correct,
+    output logic cdb_valid1,
+    output logic [XLEN-1:0] cdb_result1,
+    output logic [PRF_ADDRESS-1:0] cdb_prd1,
+    output logic [ROB_PTR_SIZE-1:0] cdb_rob_index1,
+    output logic cdb_valid2,
+    output logic [XLEN-1:0] cdb_result2,
+    output logic [PRF_ADDRESS-1:0] cdb_prd2,
+    output logic [ROB_PTR_SIZE-1:0] cdb_rob_index2,
+    output logic alu_wb_valid1,
+    output logic [XLEN-1:0] alu_wb_result1,
+    output logic [PRF_ADDRESS-1:0] alu_wb_prd1,
+    output logic [ROB_PTR_SIZE-1:0] alu_wb_rob_index1,
+    output logic alu_wb_valid2,
+    output logic [XLEN-1:0] alu_wb_result2,
+    output logic [PRF_ADDRESS-1:0] alu_wb_prd2,
+    output logic [ROB_PTR_SIZE-1:0] alu_wb_rob_index2,
+    output logic cdb_div_busy, cdb_mul_busy
 );
-    logic is_mul1, is_div1, is_alu1, is_mul2, is_div2, is_alu2;
+
+    logic is_mul1, is_div1, is_alu1;
+    logic is_mul2, is_div2, is_alu2;
+    logic [XLEN-1:0] instr1_rs1_data, instr1_rs2_data;
+    logic [XLEN-1:0] instr2_rs1_data, instr2_rs2_data;
+    logic [XLEN-1:0] internal_alu_result1, internal_alu_result2;
+    logic mul_cdb_valid, div_cdb_valid;
+    logic [XLEN-1:0] mul_result, div_result;
+    logic [PRF_ADDRESS-1:0] mul_prd, div_prd;
+    logic [ROB_PTR_SIZE-1:0] mul_rob_index, div_rob_index;
     
     always_comb begin
-        is_mul1 = 1'b0;
-        is_div1 = 1'b0;
-        is_alu1 = 1'b0;
+        is_mul1 = 1'b0; is_div1 = 1'b0; is_alu1 = 1'b0;
+        is_mul2 = 1'b0; is_div2 = 1'b0; is_alu2 = 1'b0;
 
-        is_mul2 = 1'b0;
-        is_div2 = 1'b0;
-        is_alu2 = 1'b0;
-
-        if (rr_alu_operation1[4:2] == 3'b100) begin
+        if (rr_is_m_extension1 && rr_alu_operation1[4:2] == 3'b100) begin
             is_mul1 = 1'b1; 
         end 
-        else if (rr_alu_operation1 == 5'b101_00 || rr_alu_operation1 == 5'b101_01 || 
-                 rr_alu_operation1 == 5'b110_10 || rr_alu_operation1 == 5'b110_11) begin
+        else if (rr_is_m_extension1 && (rr_alu_operation1[4:2] == 3'b101 || rr_alu_operation1[4:2] == 3'b110)) begin
             is_div1 = 1'b1; 
         end
         else begin
             is_alu1 = 1'b1;  
         end
 
-        if (rr_alu_operation2[4:2] == 3'b100) begin
+        if (rr_is_m_extension2 && rr_alu_operation2[4:2] == 3'b100) begin
             is_mul2 = 1'b1; 
         end
-        else if (rr_alu_operation2 == 5'b101_00 || rr_alu_operation2 == 5'b101_01 || 
-                 rr_alu_operation2 == 5'b110_10 || rr_alu_operation2 == 5'b110_11) begin
+        else if (rr_is_m_extension2 && (rr_alu_operation2[4:2] == 3'b101 || rr_alu_operation2[4:2] == 3'b110)) begin
             is_div2 = 1'b1;  
         end
         else begin
             is_alu2 = 1'b1;  
         end
+
+        instr1_rs1_data = (rr_upperimm1)? 0 : ((rr_instr1_regsrc1)? rr_instr1_read_data1: {rr_pc1,2'b00});
+        instr2_rs1_data = (rr_upperimm2)? 0 : ((rr_instr2_regsrc1)? rr_instr2_read_data1: {rr_pc2,2'b00});
+        
+        instr1_rs2_data = (rr_retaddr1)?  4 : ((rr_instr1_regsrc2)? rr_instr1_read_data2: rr_immediate1);  
+        instr2_rs2_data = (rr_retaddr2)?  4 : ((rr_instr2_regsrc2)? rr_instr2_read_data2: rr_immediate2);
     end
 
-    // =========================================================================
-    // Multiplier Instantiation
-    // =========================================================================
-    logic mul_busy;
-    logic mul_cdb_valid;
-    logic [XLEN-1:0] mul_result;
-    logic [PRF_ADDRESS-1:0] mul_prd;
-    logic [ROB_PTR_SIZE-1:0] mul_rob_index;
+    ALU alu1_instantiation(
+        .valid              (rr_valid1),
+        .dataA              (instr1_rs1_data),
+        .dataB              (instr1_rs2_data),
+        .rr_alu_operation   (rr_alu_operation1),
+        .alu_result         (internal_alu_result1)        
+    );
+
+    ALU alu2_instantiation(
+        .valid              (rr_valid2),
+        .dataA              (instr2_rs1_data),
+        .dataB              (instr2_rs2_data),
+        .rr_alu_operation   (rr_alu_operation2),
+        .alu_result         (internal_alu_result2)      
+    );
+
+    logic branch1_active, branch2_active;
+    logic branch1_actual_taken, branch2_actual_taken;
+    logic [XLEN-1:0] branch1_actual_target, branch2_actual_target;
+    logic branch1_mispredicted, branch2_mispredicted;
+
+    always_comb begin
+        branch1_active = rr_valid1 && (rr_branch1 || rr_jump1 || rr_jump_reg1);
+        branch2_active = rr_valid2 && (rr_branch2 || rr_jump2 || rr_jump_reg2);
+
+        branch1_actual_taken = rr_jump1 || rr_jump_reg1 || (rr_branch1 && internal_alu_result1[0]);
+        branch2_actual_taken = rr_jump2 || rr_jump_reg2 || (rr_branch2 && internal_alu_result2[0]);
+
+        if (rr_jump_reg1) 
+            branch1_actual_target = (instr1_rs1_data + rr_immediate1) & ~32'b1;
+        else 
+            branch1_actual_target = {rr_pc1, 2'b00} + rr_immediate1; // Format PC to 32-bit before adding
+
+        if (rr_jump_reg2) 
+            branch2_actual_target = (instr2_rs1_data + rr_immediate2) & ~32'b1;
+        else 
+            branch2_actual_target = {rr_pc2, 2'b00} + rr_immediate2; // Format PC to 32-bit before adding
+
+        branch1_mispredicted = (branch1_actual_taken != biq_pred_taken1) || 
+                               (branch1_actual_taken && (branch1_actual_target != biq_pred_target1));
+
+        branch2_mispredicted = (branch2_actual_taken != biq_pred_taken2) || 
+                               (branch2_actual_taken && (branch2_actual_target != biq_pred_target2));
+
+        cdb_branch_resolved = 1'b0;
+        cdb_branch_correct  = 1'b0;
+        cdb_branch_tag      = '0;
+        flush               = 1'b0;
+
+        if (branch1_active) begin
+            cdb_branch_resolved = 1'b1;
+            cdb_branch_correct  = !branch1_mispredicted; 
+            cdb_branch_tag      = rr_branch_tag1;
+            flush               = branch1_mispredicted;  
+        end
+        else if (branch2_active) begin
+            cdb_branch_resolved = 1'b1;
+            cdb_branch_correct  = !branch2_mispredicted;
+            cdb_branch_tag      = rr_branch_tag2;
+            flush               = branch2_mispredicted;
+        end
+    end
 
     MUL_Unit multiplier_instantiation (
-        // Global & Control
         .CLK(CLK), 
         .reset(reset), 
-        .flush(flush), 
-        
-        // The Routed Valid Signal (from your traffic cop logic: issue_valid & is_mul)
-        .valid(start_mul),               
-        
-        // Branch Mask & Flush Interface
+        .flush(flush),   
         .cdb_branch_tag(cdb_branch_tag),
-        .rr_branch_mask(rr_branch_mask),
         .cdb_branch_resolved(cdb_branch_resolved),
         .cdb_branch_correct(cdb_branch_correct),
         
-        // Data & Instruction Inputs
-        .rs1_data(rs1_data),
-        .rs2_data(rs2_data),
-        .alu_operation(alu_operation),
-        .rr_prd(rr_prd),
-        .rr_rob_index(rr_rob_index),
+        .valid          ((rr_valid1 && is_mul1) || (rr_valid2 && is_mul2)),
+        .rr_branch_mask ((rr_valid1 && is_mul1) ? rr_branch_mask1   : rr_branch_mask2),
+        .rs1_data       ((rr_valid1 && is_mul1) ? instr1_rs1_data   : instr2_rs1_data),
+        .rs2_data       ((rr_valid1 && is_mul1) ? instr1_rs2_data   : instr2_rs2_data),
+        .alu_operation  ((rr_valid1 && is_mul1) ? rr_alu_operation1 : rr_alu_operation2),
+        .rr_prd         ((rr_valid1 && is_mul1) ? rr_prd1           : rr_prd2),
+        .rr_rob_index   ((rr_valid1 && is_mul1) ? rr_rob_index1     : rr_rob_index2),
         
-        // Outputs to the Wrapper / Common Data Bus
-        .cdb_mul_busy(mul_busy),
-        .cdb_write_data(mul_cdb_valid),
-        .cdb_alu_result(mul_result),
-        .cdb_prd(mul_prd),
-        .cdb_rob_index(mul_rob_index)
+        .cdb_mul_busy   (cdb_mul_busy),
+        .cdb_write_data (mul_cdb_valid),
+        .cdb_alu_result (mul_result),
+        .cdb_prd        (mul_prd),
+        .cdb_rob_index  (mul_rob_index)
     );
 
     DIV_Unit divider_instantiation (
         .CLK(CLK),
         .reset(reset),
-    
-        .valid(),         
-        
         .flush(flush),
         .cdb_branch_tag(cdb_branch_tag),
-        .rr_branch_mask(rr_branch_mask),
         .cdb_branch_resolved(cdb_branch_resolved),
         .cdb_branch_correct(cdb_branch_correct),
         
-        .rs1_data(rs1_data),
-        .rs2_data(rs2_data),
-        .alu_operation(alu_operation),
+        .valid          ((rr_valid1 && is_div1) || (rr_valid2 && is_div2)), 
+        .rr_branch_mask ((rr_valid1 && is_div1) ? rr_branch_mask1   : rr_branch_mask2),
+        .dividend_in    ((rr_valid1 && is_div1) ? instr1_rs1_data   : instr2_rs1_data),
+        .divisor_in     ((rr_valid1 && is_div1) ? instr1_rs2_data   : instr2_rs2_data),
+        .alu_operation  ((rr_valid1 && is_div1) ? rr_alu_operation1 : rr_alu_operation2),
+        .rr_prd         ((rr_valid1 && is_div1) ? rr_prd1           : rr_prd2),
+        .rr_rob_index   ((rr_valid1 && is_div1) ? rr_rob_index1     : rr_rob_index2),
         
-        .rr_prd(rr_prd),
-        .rr_rob_index(rr_rob_index),
-        
-        .cdb_div_busy(div_busy), 
-    
-        .cdb_write_data(div_cdb_valid),
-        .cdb_alu_result(div_result),
-        .cdb_prd(div_prd),
-        .cdb_rob_index(div_rob_index)
+        .cdb_div_busy   (cdb_div_busy), 
+        .cdb_write_data (div_cdb_valid),
+        .cdb_alu_result (div_result),
+        .cdb_prd        (div_prd),
+        .cdb_rob_index  (div_rob_index)
     );
+
+    always_comb begin
+        cdb_valid1 = 1'b0; cdb_result1 = '0; cdb_prd1 = '0; cdb_rob_index1 = '0;
+        cdb_valid2 = 1'b0; cdb_result2 = '0; cdb_prd2 = '0; cdb_rob_index2 = '0;
+
+        if (mul_cdb_valid) begin
+            cdb_valid1     = 1'b1;
+            cdb_result1    = mul_result;
+            cdb_prd1       = mul_prd;
+            cdb_rob_index1 = mul_rob_index;
+        end 
+
+        if (div_cdb_valid) begin
+            cdb_valid2     = 1'b1;
+            cdb_result2    = div_result;
+            cdb_prd2       = div_prd;
+            cdb_rob_index2 = div_rob_index;
+        end 
+
+        alu_wb_valid1     = rr_valid1 && is_alu1;
+        alu_wb_result1    = internal_alu_result1;
+        alu_wb_prd1       = rr_prd1;
+        alu_wb_rob_index1 = rr_rob_index1;
+
+        alu_wb_valid2     = rr_valid2 && is_alu2;
+        alu_wb_result2    = internal_alu_result2;
+        alu_wb_prd2       = rr_prd2;
+        alu_wb_rob_index2 = rr_rob_index2;
+    end
 
 endmodule
