@@ -99,7 +99,7 @@ module CU #(
                 MemToReg = 0;
                 RetAddr = 1;
                 ALUOp = 3'b100;  
-                imm = 0;
+                imm = 1;
             end 
             7'b1101111: begin 
                 Jump = 1;
@@ -113,7 +113,7 @@ module CU #(
                 MemToReg = 0;
                 RetAddr = 1;
                 ALUOp = 3'b100;
-                imm = 0;  
+                imm = 1;  
             end 
             7'b0110111: begin 
                 Jump = 0;

@@ -172,7 +172,7 @@ module IQ #(
                     IQ[iq_alloc_index1].prs1_busy     <= rn_prs1_busy1;
                     IQ[iq_alloc_index1].prs2          <= rn_prs2_1;
                     IQ[iq_alloc_index1].immediate     <= rn_immout1; 
-                    IQ[iq_alloc_index1].prs2_busy     <= rn_prs2_busy1;
+                    IQ[iq_alloc_index1].prs2_busy     <= rn_prs2_busy1 && !rn_isimm1;
                     IQ[iq_alloc_index1].alu_operation <= rn_alu_operation1;
                     IQ[iq_alloc_index1].jump_reg      <= rn_jump_reg1;
                     IQ[iq_alloc_index1].jump          <= rn_jump1; 
@@ -200,7 +200,7 @@ module IQ #(
                     IQ[iq_alloc_index2].prs1_busy     <= rn_prs1_busy2;
                     IQ[iq_alloc_index2].prs2          <= rn_prs2_2;
                     IQ[iq_alloc_index2].immediate     <= rn_immout2; 
-                    IQ[iq_alloc_index2].prs2_busy     <= rn_prs2_busy2;
+                    IQ[iq_alloc_index2].prs2_busy     <= rn_prs2_busy2 && !rn_isimm2;
                     IQ[iq_alloc_index2].alu_operation <= rn_alu_operation2;
                     IQ[iq_alloc_index2].jump_reg      <= rn_jump_reg2;
                     IQ[iq_alloc_index2].jump          <= rn_jump2; 
