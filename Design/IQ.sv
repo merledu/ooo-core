@@ -11,11 +11,11 @@ module IQ #(
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
     input logic CLK, reset, rob_full, flush, cdb_wakeup1, cdb_wakeup2, cdb_mul_busy, cdb_div_busy,
-    input logic cdb_branch_resolved, cdb_branch_correct,
+    input logic ex_branch_resolved, ex_branch_correct,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
     input logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
-    input logic [BTAG_SIZE-1:0] rn_branch_tag, cdb_branch_tag,
+    input logic [BTAG_SIZE-1:0] rn_branch_tag, ex_branch_tag,
     input logic [MAX_BRANCHES-1:0] rn_branch_mask,
     input logic [BIQ_ADDRESS-1:0] rn_biq_address,
     input logic [XLEN-3:0] rn_pc,
@@ -127,7 +127,7 @@ module IQ #(
         else begin
             for (int i = 0; i < IQ_ROWS; i++) begin
                 //if instruction is flushed
-                if (flush && !IQ[i].available && IQ[i].branch_mask[cdb_branch_tag]) begin
+                if (flush && !IQ[i].available && IQ[i].branch_mask[ex_branch_tag]) begin
                     IQ[i].available <= 1'b1;
                 end
                 
@@ -139,8 +139,8 @@ module IQ #(
                     end
 
                     //clearing branch mask after correctly predicted
-                    if (cdb_branch_resolved && cdb_branch_correct) begin
-                        IQ[i].branch_mask[cdb_branch_tag] <= 1'b0;
+                    if (ex_branch_resolved && ex_branch_correct) begin
+                        IQ[i].branch_mask[ex_branch_tag] <= 1'b0;
                     end
                     // wake up prs1
                     if (IQ[i].prs1_busy) begin
