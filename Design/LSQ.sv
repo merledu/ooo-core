@@ -27,16 +27,12 @@ module LSQ #(
     input logic ex_address_available2, ex_is_load2,
     input logic [LQ_ADDRESS-1:0] ex_lq_index2,
     input logic [XLEN-1:0] ex_memory_address2,
-    
     input logic ex_mem_address1_available, ex_is_load1, ex_is_store1,
     input logic [XLEN-1:0] ex_mem_address1,
-    input logic [LQ_ADDRESS-1:0] ex_lq_index1,
     input logic [SQ_ADDRESS-1:0] ex_sq_index1,
     input logic ex_mem_address2_available, ex_is_load2, ex_is_store2,
     input logic [XLEN-1:0] ex_mem_address2,
-    input logic [LQ_ADDRESS-1:0] ex_lq_index2,
     input logic [SQ_ADDRESS-1:0] ex_sq_index2,
-    
     input logic cdb_result1_available, cdb_result2_available,
     input logic [PRF_ADDRESS-1:0] cdb_tag1_broadcast, cdb_tag2_broadcast,
     input logic [XLEN-1:0] cdb_result1_broadcast, cdb_result2_broadcast,
@@ -45,7 +41,7 @@ module LSQ #(
     input logic mem_lq_write,
     input logic [LQ_ADDRESS-1:0] mem_lq_index,
     input logic [XLEN-1:0] mem_read_data,
-    // Outputs
+    
     output logic lsq_full,
     output logic load1_violation_flush, load2_violation_flush,
     output logic lsq_mem_write, lsq_mem_read, lsq_write_prf,
