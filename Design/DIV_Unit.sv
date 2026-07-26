@@ -6,7 +6,7 @@ module DIV_Unit #(
     parameter MAX_BRANCHES = 4,                                
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES)                
 ) (
-    input  logic CLK, reset, flush, valid,                     
+    input  logic CLK, reset, flush, valid, rob_global_flush,                  
     input  logic [BTAG_SIZE-1:0] cdb_branch_tag,               
     input  logic [MAX_BRANCHES-1:0] rr_branch_mask,            
     input  logic cdb_branch_resolved,                          
@@ -104,7 +104,7 @@ module DIV_Unit #(
 
     // Sequential Logic: The FSM & Pipeline Latch
     always_ff @(posedge CLK) begin
-        if (reset) begin
+        if (reset || rob_global_flush) begin
             state <= IDLE;
             cdb_div_busy <= 1'b0;
             Out_valid_reg <= 1'b0;

@@ -8,7 +8,7 @@ module RR_Stage #(
     parameter ROB_SIZE = 64,
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
-    input logic CLK, reset, flush, cdb_regwrite1, cdb_regwrite2,
+    input logic CLK, reset, flush, cdb_regwrite1, cdb_regwrite2, rob_global_flush,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [PRF_ADDRESS-1:0] cdb_write_address1, cdb_write_address2,
     input logic [XLEN-1:0] cdb_write_data1, cdb_write_data2,
@@ -66,8 +66,8 @@ module RR_Stage #(
     output logic [ROB_PTR_SIZE-1:0]        rr_rob_index2
 );
     always_ff @(posedge CLK) begin
-        rr_valid1 <= iss_valid1 && !(flush && iss_branch_mask1[cdb_branch_tag]);   
-        rr_valid2 <= iss_valid2 && !(flush && iss_branch_mask2[cdb_branch_tag]);   
+        rr_valid1 <= iss_valid1 && (!(flush && iss_branch_mask1[cdb_branch_tag]) && !rob_global_flush);   
+        rr_valid2 <= iss_valid2 && (!(flush && iss_branch_mask2[cdb_branch_tag]) && !rob_global_flush);   
         //for 1st instruction 
         rr_is_m_extension1 <= iss_is_m_extension1;
         rr_jump_reg1       <= iss_jump_reg1; 

@@ -7,7 +7,7 @@ module ID_Stage #(
     parameter INIT_IMMEDIATE_SIZE   = 21,
     parameter BIQ_ADDRESS           = 5
 ) (
-    input logic CLK, reset, flush, dis_biq_dealloc, if_pred_taken, stall_frontend,
+    input logic CLK, reset, flush, dis_biq_dealloc, if_pred_taken, stall_frontend, rob_global_flush,
     input logic if_valid1, if_valid2,
     input logic [XLEN-1:0] if_instr1, if_instr2, if_pred_target, 
     input logic [XLEN-3:0] if_pc,
@@ -33,7 +33,9 @@ module ID_Stage #(
     output logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
     output logic id_immtype1, id_memwrite1,  id_immtype2, id_biq_valid, id_biq_pred_taken, id_regsrc2_1,
     output logic id_regsrc1_2, id_regsrc2_2, id_upperimm1, id_upperimm2, id_regwrite1, id_regwrite2, 
-    output logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2
+    output logic id_memwrite2, id_memtoreg1, id_memtoreg2, id_retaddr1, id_retaddr2, id_isimm1, id_isimm2,
+    output logic [1:0] id_memory_type1, id_memory_type2, 
+    output logic id_memory_sign_ext1, id_memory_sign_ext2
 );
     logic [OPCODE_SIZE-1:0] opcode_1, opcode_2; 
     logic [2:0] ALUOp_1, ALUOp_2;
@@ -51,6 +53,11 @@ module ID_Stage #(
                     (if_valid1 && (Branch_1 || Jump_1) || 
                      if_valid2 && (Branch_2 || Jump_2));
     
+    assign id_memory_type1 = if_instr1[13:12];
+    assign id_memory_type2 = if_instr2[13:12];
+
+    assign id_memory_sign_ext1 = ~if_instr1[14];
+    assign id_memory_sign_ext2 = ~if_instr2[14];
 
     always_ff @(posedge CLK) begin 
         if (reset) begin
@@ -59,8 +66,8 @@ module ID_Stage #(
             id_take_snap <= 0;
         end
         else if (!stall_frontend) begin
-            id_valid1 <= (!flush && if_valid1 && valid_opcode1); 
-            id_valid2 <= (!flush && if_valid2 && valid_opcode2); 
+            id_valid1 <= (!flush && !rob_global_flush) && if_valid1 && valid_opcode1; 
+            id_valid2 <= (!flush && !rob_global_flush) && if_valid2 && valid_opcode2; 
             id_take_snap <= is_control_flow_instr;
             id_pc <= if_pc;
             
@@ -175,6 +182,7 @@ module ID_Stage #(
         .CLK             (CLK),
         .reset           (reset),
         .flush           (flush),
+        .rob_global_flush(rob_global_flush),
         // from dispatch stage
         .biq_dealloc     (dis_biq_dealloc),
         //from register read stage

@@ -29,6 +29,7 @@ module IQ #(
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
     input logic [ROB_PTR_SIZE-1:0] current_rob_index,
+    input logic rob_global_flush,
 
     output logic iq_full,
     // Issued Instruction 1
@@ -119,7 +120,7 @@ module IQ #(
     end
 
     always_ff @(posedge CLK) begin 
-        if (reset) begin
+        if (reset || rob_global_flush) begin
             for (int i = 0; i < IQ_ROWS; i++) begin
                 IQ[i].available <= 1;
             end

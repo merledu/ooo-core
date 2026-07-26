@@ -7,7 +7,7 @@ module BS #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),           
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1           
 ) (
-    input logic CLK, reset, flush, id_take_snap, cdb_branch_resolved, pop1, pop2,
+    input logic CLK, reset, flush, id_take_snap, cdb_branch_resolved, pop1, pop2, rob_global_flush,
     input logic id_branch1, id_jump1, id_valid1,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [31:0][PRF_ADDRESS-1:0] rmt_snap,
@@ -50,7 +50,7 @@ module BS #(
     assign bs_branch_mask = BMR;
 
     always_ff @(posedge CLK) begin
-        if (reset) begin
+        if (reset || rob_global_flush) begin
             BMR <= '0;
         end
         else begin

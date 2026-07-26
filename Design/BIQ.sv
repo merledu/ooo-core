@@ -5,7 +5,7 @@ module BIQ #(
     parameter GHR_SIZE = 9,
     parameter RAS_ADDRESS = 3
 ) (
-    input logic CLK, reset, biq_dealloc, flush, biq_alloc, pred_taken,
+    input logic CLK, reset, biq_dealloc, flush, biq_alloc, pred_taken, rob_global_flush,
     input logic [XLEN-1:0] pred_target,
     input logic [BIQ_ADDRESS-1:0] biq_id,
     input logic [PHT_ADDRESS-1:0] pht_index,
@@ -46,7 +46,7 @@ module BIQ #(
             biq_head_ptr <= 0;
             biq_tail_ptr <= 0;
         end
-        else if (flush) begin
+        else if (flush || rob_global_flush) begin
             biq_tail_ptr <= biq_head_ptr;
         end
         else begin
