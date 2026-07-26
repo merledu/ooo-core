@@ -12,7 +12,8 @@ module RR_Stage #(
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [PRF_ADDRESS-1:0] cdb_write_address1, cdb_write_address2,
     input logic [XLEN-1:0] cdb_write_data1, cdb_write_data2,
-     // Issued Instruction 1
+    
+    // Issued Instruction 1
     input logic iss_valid1, iss_is_m_extension1, iss_jump_reg1, iss_jump1, iss_branch1, 
     input logic iss_instr1_regsrc1, iss_instr1_regsrc2, iss_immtype1, iss_isimm1, iss_retaddr1,
     input logic iss_upperimm1, iss_regwrite1, iss_memwrite1, iss_memtoreg1,
@@ -40,6 +41,9 @@ module RR_Stage #(
 
     output logic [XLEN-1:0] rr_instr1_read_data1, rr_instr1_read_data2,
     output logic [XLEN-1:0] rr_instr2_read_data1, rr_instr2_read_data2,
+    output logic [PRF_ADDRESS-1:0] rr_instr1_prs1, rr_instr1_prs2,
+    output logic [PRF_ADDRESS-1:0] rr_instr2_prs1, rr_instr2_prs2,
+
     // Instruction 1 Outputs
     output logic rr_valid1, rr_is_m_extension1, rr_jump_reg1, rr_jump1, rr_branch1,
     output logic rr_instr1_regsrc1, rr_instr1_regsrc2, rr_isimm1, rr_retaddr1, rr_upperimm1,
@@ -52,6 +56,7 @@ module RR_Stage #(
     output logic [MAX_BRANCHES-1:0]        rr_branch_mask1,
     output logic [BIQ_ADDRESS-1:0]         rr_biq_address1,
     output logic [ROB_PTR_SIZE-1:0]        rr_rob_index1,
+    
     // Instruction 2 Outputs
     output logic rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2,
     output logic rr_instr2_regsrc1, rr_instr2_regsrc2, rr_isimm2, rr_retaddr2, rr_upperimm2,
@@ -68,6 +73,11 @@ module RR_Stage #(
     always_ff @(posedge CLK) begin
         rr_valid1 <= iss_valid1 && (!(flush && iss_branch_mask1[cdb_branch_tag]) && !rob_global_flush);   
         rr_valid2 <= iss_valid2 && (!(flush && iss_branch_mask2[cdb_branch_tag]) && !rob_global_flush);   
+        rr_instr1_prs1 <= iss_instr1_prs1;
+        rr_instr1_prs2 <= iss_instr1_prs2;
+        rr_instr2_prs1 <= iss_instr2_prs1;
+        rr_instr2_prs2 <= iss_instr2_prs2;
+
         //for 1st instruction 
         rr_is_m_extension1 <= iss_is_m_extension1;
         rr_jump_reg1       <= iss_jump_reg1; 
@@ -88,7 +98,6 @@ module RR_Stage #(
         rr_branch_mask1    <= iss_branch_mask1;
         rr_biq_address1    <= iss_biq_address1;
         rr_rob_index1      <= iss_rob_index1;
-
 
         //for 2nd instruction
         rr_is_m_extension2 <= iss_is_m_extension2;
@@ -113,38 +122,28 @@ module RR_Stage #(
     end
     
     PRF prf_instantiation (
-        // ------------------- Globals & Control -------------------
         .CLK                 (CLK),
         .reset               (reset),
-        
-        // ------------------- Write Ports (From CDB) -------------------
         .cdb_regwrite1       (cdb_regwrite1),
         .cdb_regwrite2       (cdb_regwrite2),
         .cdb_write_address1  (cdb_write_address1),
         .cdb_write_address2  (cdb_write_address2),
         .cdb_write_data1     (cdb_write_data1),
         .cdb_write_data2     (cdb_write_data2),
-
-        // ------------------- Read Ports (From Issue Queue) -------------------
         .iss_instr1_prs1     (iss_instr1_prs1),
         .iss_instr1_prs2     (iss_instr1_prs2),
         .iss_instr2_prs1     (iss_instr2_prs1),
         .iss_instr2_prs2     (iss_instr2_prs2),
-
-        // ------------------- Read Data (To ALU/Execution) -------------------
         .rr_instr1_read_data1(rr_instr1_read_data1),
         .rr_instr1_read_data2(rr_instr1_read_data2),
         .rr_instr2_read_data1(rr_instr2_read_data1),
         .rr_instr2_read_data2(rr_instr2_read_data2)
     );
     IG ig_instantiation (
-        // ------------------- Inputs (From Issue Queue) -------------------
         .iss_immediate1(iss_immediate1),
         .iss_immediate2(iss_immediate2),
         .iss_immtype1  (iss_immtype1),
         .iss_immtype2  (iss_immtype2),
-        
-        // ------------------- Outputs (To ALU/Execution) -------------------
         .rr_immediate1 (rr_immediate1),
         .rr_immediate2 (rr_immediate2)
     );

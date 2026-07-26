@@ -10,7 +10,7 @@ module IQ #(
     parameter ROB_SIZE = 64,
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
 ) (
-    input logic CLK, reset, rob_full, flush, cdb_wakeup1, cdb_wakeup2, cdb_mul_busy, cdb_div_busy,
+    input logic CLK, reset, rob_full, flush, stall_issue, cdb_wakeup1, cdb_wakeup2, cdb_mul_busy, cdb_div_busy,
     input logic ex_branch_resolved, ex_branch_correct,
     input logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, cdb_waked_reg1, cdb_waked_reg2,
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2,       
@@ -115,7 +115,6 @@ module IQ #(
             end
         end
 
-        // iq is full if we dont have enough slots for the VALID instructions
         iq_full = (rn_valid1 && rn_valid2 && !alloc2_found) || ((rn_valid1 || rn_valid2) && !alloc1_found);
     end
 
@@ -127,23 +126,19 @@ module IQ #(
         end
         else begin
             for (int i = 0; i < IQ_ROWS; i++) begin
-                //if instruction is flushed
                 if (flush && !IQ[i].available && IQ[i].branch_mask[ex_branch_tag]) begin
                     IQ[i].available <= 1'b1;
                 end
-                
-                //if the instruction is not flushed
                 else if (!IQ[i].available) begin 
-                    //if instruction is issued then free the slot
-                    if (!flush && ((issue1_found && (IQ_ADDRESS'(i) == issue_index1))||(issue2_found && (IQ_ADDRESS'(i) == issue_index2)))) begin
+                    // STALL ISSUE CHECK: Don't free the slot if stalled!
+                    if (!flush && !stall_issue && ((issue1_found && (IQ_ADDRESS'(i) == issue_index1))||(issue2_found && (IQ_ADDRESS'(i) == issue_index2)))) begin
                         IQ[i].available <= 1'b1;
                     end
 
-                    //clearing branch mask after correctly predicted
                     if (ex_branch_resolved && ex_branch_correct) begin
                         IQ[i].branch_mask[ex_branch_tag] <= 1'b0;
                     end
-                    // wake up prs1
+                    
                     if (IQ[i].prs1_busy) begin
                         if ((cdb_wakeup1 && (IQ[i].prs1 == cdb_waked_reg1)) || 
                             (cdb_wakeup2 && (IQ[i].prs1 == cdb_waked_reg2)) || 
@@ -152,7 +147,6 @@ module IQ #(
                             IQ[i].prs1_busy <= 1'b0;
                         end
                     end
-                    // wake up prs2
                     if (IQ[i].prs2_busy) begin
                         if ((cdb_wakeup1 && (IQ[i].prs2 == cdb_waked_reg1)) || 
                             (cdb_wakeup2 && (IQ[i].prs2 == cdb_waked_reg2)) || 
@@ -224,7 +218,6 @@ module IQ #(
         end
     end
 
-    //issue stage 
     always_comb begin
         issue_index1 = '0;
         issue_index2 = '0;
@@ -237,12 +230,10 @@ module IQ #(
         iss2_div =0;
         alu_structural_hazard = 0;
         
-        //only 1 branch is executed in 1 cycle for simplicity
         for (int i = 0; i < IQ_ROWS; i++) begin
             if (!IQ[i].available && !IQ[i].prs1_busy && !IQ[i].prs2_busy && !issue1_found) begin
                 issue_index1 = IQ_ADDRESS'(i);
                 is_control_flow_instr = (IQ[i].branch || IQ[i].jump);
-
                 iss1_mul = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b100);
                 iss1_div = IQ[i].is_m_extension && (IQ[i].alu_operation[4:2] == 3'b101 || IQ[i].alu_operation[4:2] == 3'b110);
                 issue1_found = !(iss1_mul && cdb_mul_busy) && !(iss1_div && cdb_div_busy);
@@ -255,23 +246,22 @@ module IQ #(
                     issue_index2 = IQ_ADDRESS'(i);
                     issue2_found = !(iss2_mul && cdb_mul_busy) && !(iss2_div && cdb_div_busy);                    
                 end
-                
             end
         end
-        // fast wakeup logic
+        // STALL ISSUE CHECK: Don't fast wakeup if stalled!
         fast_waked_reg1 = IQ[issue_index1].prd;
         fast_waked_reg2 = IQ[issue_index2].prd;
-        fast_wakeup1    = issue1_found && !IQ[issue_index1].is_m_extension && !IQ[issue_index1].memtoreg && IQ[issue_index1].regwrite;
-        fast_wakeup2    = issue2_found && !IQ[issue_index2].is_m_extension && !IQ[issue_index2].memtoreg && IQ[issue_index2].regwrite;
+        fast_wakeup1    = issue1_found && !stall_issue && !IQ[issue_index1].is_m_extension && !IQ[issue_index1].memtoreg && IQ[issue_index1].regwrite;
+        fast_wakeup2    = issue2_found && !stall_issue && !IQ[issue_index2].is_m_extension && !IQ[issue_index2].memtoreg && IQ[issue_index2].regwrite;
     end
-    //pipeline of issue stage
+
     always_ff @(posedge CLK) begin
         if (reset) begin
             iss_valid1 <= 0;
             iss_valid2 <= 0;
         end
         else begin 
-            if (issue1_found && !flush) begin
+            if (issue1_found && !flush && !stall_issue) begin
                 iss_valid1         <= 1'b1; 
                 iss_is_m_extension1<= IQ[issue_index1].is_m_extension;          
                 iss_pc1            <= IQ[issue_index1].pc;       
@@ -301,7 +291,7 @@ module IQ #(
                 iss_valid1         <= 1'b0;
             end
 
-            if (issue2_found && !flush) begin
+            if (issue2_found && !flush && !stall_issue) begin
                 iss_valid2         <= 1'b1;     
                 iss_is_m_extension2<= IQ[issue_index2].is_m_extension;                   
                 iss_pc2            <= IQ[issue_index2].pc;       
@@ -332,7 +322,4 @@ module IQ #(
             end
         end
     end
-
-
-            
 endmodule
