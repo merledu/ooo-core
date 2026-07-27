@@ -8,6 +8,7 @@ module ALU #(
 );
 
     always_comb begin
+        alu_result = 0;
         if (valid) begin
             case(rr_alu_operation[3:0])
                 4'b0000: alu_result = dataA | dataB;

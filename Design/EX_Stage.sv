@@ -95,8 +95,14 @@ module EX_Stage #(
 
     always_ff @(posedge CLK) begin
         if (reset || rob_global_flush) begin
-            prev_alu1_valid <= 0;
-            prev_alu2_valid <= 0;
+            prev_alu1_valid <= 1'b0;
+            prev_alu2_valid <= 1'b0;
+            prev_alu1_regwrite <= 1'b0;
+            prev_alu2_regwrite <= 1'b0;
+            prev_alu1_prd <= '0;
+            prev_alu2_prd <= '0;
+            prev_alu1_result <= '0;
+            prev_alu2_result <= '0;
         end else begin
             prev_alu1_valid    <= rr_valid1 && is_alu1 && rr_regwrite1 && !flush; 
             prev_alu1_regwrite <= rr_regwrite1;
@@ -157,10 +163,11 @@ module EX_Stage #(
             default: fw_read_data2_2 = rr_instr2_read_data2;
         endcase
         
-        instr1_rs1_data = (rr_upperimm1)? 0 : ((rr_instr1_regsrc1)? fw_read_data1_1: {rr_pc1,2'b00});
-        instr2_rs1_data = (rr_upperimm2)? 0 : ((rr_instr2_regsrc1)? fw_read_data2_1: {rr_pc2,2'b00});
-        instr1_rs2_data = (rr_retaddr1)?  4 : ((rr_instr1_regsrc2)? fw_read_data1_2: rr_immediate1);  
-        instr2_rs2_data = (rr_retaddr2)?  4 : ((rr_instr2_regsrc2)? fw_read_data2_2: rr_immediate2);
+        // VERILATOR FIX: Explicit Width Casting for Constants
+        instr1_rs1_data = (rr_upperimm1) ? {XLEN{1'b0}} : ((rr_instr1_regsrc1) ? fw_read_data1_1 : {rr_pc1, 2'b00});
+        instr2_rs1_data = (rr_upperimm2) ? {XLEN{1'b0}} : ((rr_instr2_regsrc1) ? fw_read_data2_1 : {rr_pc2, 2'b00});
+        instr1_rs2_data = (rr_retaddr1)  ? XLEN'(4)     : ((rr_instr1_regsrc2) ? fw_read_data1_2 : rr_immediate1);  
+        instr2_rs2_data = (rr_retaddr2)  ? XLEN'(4)     : ((rr_instr2_regsrc2) ? fw_read_data2_2 : rr_immediate2);
     end
 
     ALU alu1_instantiation (
@@ -196,9 +203,18 @@ module EX_Stage #(
         branch1_mispredicted = (branch1_actual_taken != biq_pred_taken1) || (branch1_actual_taken && (branch1_actual_target != biq_pred_target1));
         branch2_mispredicted = (branch2_actual_taken != biq_pred_taken2) || (branch2_actual_taken && (branch2_actual_target != biq_pred_target2));
 
-        cdb_branch_resolved = 1'b0; cdb_branch_correct = 1'b0; cdb_branch_tag = '0; flush = 1'b0;
-        ex_actual_taken = 1'b0; update_pht = 1'b0; ex_is_jalr = 1'b0; ex_is_ret = 1'b0; ex_is_branch = 1'b0;
-        ex_actual_target_address = '0; ex_pc = '0;
+        // VERILATOR FIX: Set explicit widths on all defaults to avoid latch/trunc warnings
+        cdb_branch_resolved = 1'b0; 
+        cdb_branch_correct = 1'b0; 
+        cdb_branch_tag = {BTAG_SIZE{1'b0}}; 
+        flush = 1'b0;
+        ex_actual_taken = 1'b0; 
+        update_pht = 1'b0; 
+        ex_is_jalr = 1'b0; 
+        ex_is_ret = 1'b0; 
+        ex_is_branch = 1'b0;
+        ex_actual_target_address = {XLEN{1'b0}}; 
+        ex_pc = {XLEN{1'b0}};
 
         if (branch1_active) begin
             cdb_branch_resolved = 1'b1; 
@@ -263,8 +279,8 @@ module EX_Stage #(
         .div_ack                (div_ack), 
         .valid                  ((rr_valid1 && is_div1) || (rr_valid2 && is_div2)), 
         .rr_branch_mask         ((rr_valid1 && is_div1) ? rr_branch_mask1 : rr_branch_mask2),
-        .dividend_in            ((rr_valid1 && is_div1) ? instr1_rs1_data : instr2_rs1_data),
-        .divisor_in             ((rr_valid1 && is_div1) ? instr1_rs2_data : instr2_rs2_data),
+        .rs1_data               ((rr_valid1 && is_div1) ? instr1_rs1_data : instr2_rs1_data),
+        .rs2_data               ((rr_valid1 && is_div1) ? instr1_rs2_data : instr2_rs2_data),
         .alu_operation          ((rr_valid1 && is_div1) ? rr_alu_operation1 : rr_alu_operation2),
         .rr_prd                 ((rr_valid1 && is_div1) ? rr_prd1 : rr_prd2),
         .rr_rob_index           ((rr_valid1 && is_div1) ? rr_rob_index1 : rr_rob_index2),

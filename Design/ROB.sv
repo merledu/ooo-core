@@ -54,6 +54,8 @@ module ROB #(
 
     logic slot1_is_load, slot2_is_load;
     logic slot1_is_store, slot2_is_store; 
+    logic slot2_poisoned;
+
     assign slot1_is_load = ROB[head_idx].is_load;
     assign slot2_is_load = ROB[head_plus_1_idx].is_load;
     assign slot1_is_store = ROB[head_idx].is_store; 
@@ -64,6 +66,7 @@ module ROB #(
         completed2 = 1'b0;
         rob_global_flush = 1'b0;
         rob_flush_pc = '0; 
+        slot2_poisoned = 1'b0;
 
         if ((rob_count > 0) && ROB[head_idx].done) begin
             if (slot1_is_load && load1_violation_flush) begin
@@ -74,7 +77,7 @@ module ROB #(
                 completed1 = 1'b1;
                 
                 if ((rob_count > 1) && ROB[head_plus_1_idx].done) begin
-                    logic slot2_poisoned = 1'b0;
+                    
                     
                     if (slot2_is_load) begin
                         if (slot1_is_load) begin

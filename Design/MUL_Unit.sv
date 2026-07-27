@@ -73,27 +73,30 @@ module MUL_Unit #(
     logic [2:0] booth_sel;
     assign booth_sel = {Q_reg[1:0], Q_minus_1};
 
+    // Determine the partial product based on the Booth window
     logic [34:0] partial_product;
     always_comb begin
         case(booth_sel)
-            3'b001, 3'b010: partial_product = {M_reg[33], M_reg};                  
-            3'b011:         partial_product = {M_reg, 1'b0};                       
-            3'b100:         partial_product = -{M_reg, 1'b0};                      
-            3'b101, 3'b110: partial_product = -{M_reg[33], M_reg};                 
+            3'b001, 3'b010: partial_product = M_reg;                  // M_reg is already 35 bits
+            3'b011:         partial_product = {M_reg[33:0], 1'b0};    // Shift left, keep 35 bits
+            3'b100:         partial_product = -{M_reg[33:0], 1'b0};   
+            3'b101, 3'b110: partial_product = -M_reg;                 
             default:        partial_product = 35'b0;                               
         endcase
     end
 
+    // Add partial product to the Accumulator
     logic [34:0] next_A;
     assign next_A = {A_reg[33], A_reg} + partial_product;
 
+    // Shift everything right by 2 (Arithmetic Shift)
     logic [33:0] A_next_state;
     logic [33:0] Q_next_state;
     logic Q_m1_next_state;
 
-    assign A_next_state = {next_A[34], next_A[34], next_A[34:2]}; 
+    assign A_next_state = {next_A[34], next_A[34:2]}; // 1 bit + 33 bits = exactly 34 bits
     assign Q_next_state = {next_A[1:0], Q_reg[33:2]};             
-    assign Q_m1_next_state = Q_reg[1];                            
+    assign Q_m1_next_state = Q_reg[1];                          
 
     // Sequential Logic: FSM & Holding Pen
     always_ff @(posedge CLK) begin

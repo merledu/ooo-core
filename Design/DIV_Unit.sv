@@ -83,15 +83,15 @@ module DIV_Unit #(
 
     always_comb begin
         if (shift_R >= D_3x) begin
-            next_R = shift_R - D_3x;
+            next_R = XLEN'(shift_R - D_3x);
             next_Q = {Q_reg[29:0], 2'b11};
         end 
         else if (shift_R >= D_2x) begin
-            next_R = shift_R - D_2x;
+            next_R = XLEN'(shift_R - D_2x);
             next_Q = {Q_reg[29:0], 2'b10};
         end 
         else if (shift_R >= D_1x) begin
-            next_R = shift_R - D_1x;
+            next_R = XLEN'(shift_R - D_1x);
             next_Q = {Q_reg[29:0], 2'b01};
         end 
         else begin

@@ -51,7 +51,7 @@ module tb_main_datapath();
 
         // Allow the processor core to run
         // You can increase this delay depending on how long your instructions take to fetch/execute
-        #1000; 
+        #100; 
 
         $finish;
     end

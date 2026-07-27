@@ -27,10 +27,10 @@ module LSQ #(
     input logic ex_address_available2, ex_is_load2,
     input logic [LQ_ADDRESS-1:0] ex_lq_index2,
     input logic [XLEN-1:0] ex_memory_address2,
-    input logic ex_mem_address1_available, ex_is_load1, ex_is_store1,
+    input logic ex_mem_address1_available, ex_is_store1,
     input logic [XLEN-1:0] ex_mem_address1,
     input logic [SQ_ADDRESS-1:0] ex_sq_index1,
-    input logic ex_mem_address2_available, ex_is_load2, ex_is_store2,
+    input logic ex_mem_address2_available, ex_is_store2,
     input logic [XLEN-1:0] ex_mem_address2,
     input logic [SQ_ADDRESS-1:0] ex_sq_index2,
     input logic cdb_result1_available, cdb_result2_available,
@@ -114,51 +114,66 @@ module LSQ #(
     logic aliasing1_occured, aliasing2_occured;
     logic address1_not_available, address2_not_available;
     
+    // STLF CAM Search Block (Fix: Eliminated latches & added explicit bit-width casting)
     always_comb begin
-        aliasing1_occured = 0; address1_not_available = 0; aliased_sq_address1 = '0;
+        logic [SQ_ADDRESS-1:0] sq_idx1, sq_idx2;
+        sq_idx1 = '0; 
+        sq_idx2 = '0;
+        
+        aliasing1_occured = 0; 
+        address1_not_available = 0; 
+        aliased_sq_address1 = '0;
         
         if (ex_address_available1 && ex_is_load1) begin
             for (int offset = 0; offset < SQ_ENTRIES; offset++) begin
                 if (offset < sq_count) begin
-                    logic [SQ_ADDRESS-1:0] idx;
-                    idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + offset);
-                    if (SQ[idx].age < LQ[ex_lq_index1].age) begin
-                        if (SQ[idx].address_available) begin 
-                            if (SQ[idx].address == ex_memory_address1) begin
-                                if (SQ[idx].size == LQ[ex_lq_index1].size) begin
-                                    aliased_sq_address1 = idx; aliasing1_occured = 1; address1_not_available = 0; 
+                    sq_idx1 = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + SQ_ADDRESS'(offset));
+                    if (SQ[sq_idx1].age < LQ[ex_lq_index1].age) begin
+                        if (SQ[sq_idx1].address_available) begin 
+                            if (SQ[sq_idx1].address == ex_memory_address1) begin
+                                if (SQ[sq_idx1].size == LQ[ex_lq_index1].size) begin
+                                    aliased_sq_address1 = sq_idx1; 
+                                    aliasing1_occured = 1; 
+                                    address1_not_available = 0; 
                                 end else begin
-                                    address1_not_available = 1; aliasing1_occured = 0;
+                                    address1_not_available = 1; 
+                                    aliasing1_occured = 0;
                                 end
                             end
                         end
                         else begin
-                            address1_not_available = 1; aliasing1_occured = 0;
+                            address1_not_available = 1; 
+                            aliasing1_occured = 0;
                         end
                     end
                 end
             end
         end
         
-        aliasing2_occured = 0; address2_not_available = 0; aliased_sq_address2 = '0;
+        aliasing2_occured = 0; 
+        address2_not_available = 0; 
+        aliased_sq_address2 = '0;
 
         if (ex_address_available2 && ex_is_load2) begin
             for (int offset = 0; offset < SQ_ENTRIES; offset++) begin
                 if (offset < sq_count) begin
-                    logic [SQ_ADDRESS-1:0] idx;
-                    idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + offset);
-                    if (SQ[idx].age < LQ[ex_lq_index2].age) begin
-                        if (SQ[idx].address_available) begin 
-                            if (SQ[idx].address == ex_memory_address2) begin
-                                if (SQ[idx].size == LQ[ex_lq_index2].size) begin
-                                    aliased_sq_address2 = idx; aliasing2_occured = 1; address2_not_available = 0;
+                    sq_idx2 = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + SQ_ADDRESS'(offset));
+                    if (SQ[sq_idx2].age < LQ[ex_lq_index2].age) begin
+                        if (SQ[sq_idx2].address_available) begin 
+                            if (SQ[sq_idx2].address == ex_memory_address2) begin
+                                if (SQ[sq_idx2].size == LQ[ex_lq_index2].size) begin
+                                    aliased_sq_address2 = sq_idx2; 
+                                    aliasing2_occured = 1; 
+                                    address2_not_available = 0;
                                 end else begin
-                                    address2_not_available = 1; aliasing2_occured = 0;
+                                    address2_not_available = 1; 
+                                    aliasing2_occured = 0;
                                 end
                             end
                         end
                         else begin
-                            address2_not_available = 1; aliasing2_occured = 0;
+                            address2_not_available = 1; 
+                            aliasing2_occured = 0;
                         end
                     end
                 end
@@ -166,7 +181,11 @@ module LSQ #(
         end
     end
   
+    // Memory Arbiter (Fix: Eliminated latches & added explicit bit-width casting)
     always_comb begin 
+        logic [LQ_ADDRESS-1:0] lq_idx1;
+        lq_idx1 = '0;
+        
         lsq_mem_write = 0; lsq_memory_address = '0; lsq_mem_write_data = '0;
         lsq_mem_size = '0; lsq_mem_sign_ext = '0;
         
@@ -181,32 +200,33 @@ module LSQ #(
         lsq_mem_read = 0; lsq_lq_index = '0;
         for (int offset = 0; offset < LQ_ENTRIES; offset++) begin
             if (offset < lq_count) begin
-                logic [LQ_ADDRESS-1:0] idx;
-                idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + offset);
-                if (LQ[idx].mem_read && !lsq_mem_read && !lsq_mem_write) begin
-                    lsq_memory_address = LQ[idx].address;
-                    lsq_lq_index = idx;
-                    lsq_mem_size = LQ[idx].size;
-                    lsq_mem_sign_ext = LQ[idx].sign_extend;
+                lq_idx1 = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(offset));
+                if (LQ[lq_idx1].mem_read && !lsq_mem_read && !lsq_mem_write) begin
+                    lsq_memory_address = LQ[lq_idx1].address;
+                    lsq_lq_index = lq_idx1;
+                    lsq_mem_size = LQ[lq_idx1].size;
+                    lsq_mem_sign_ext = LQ[lq_idx1].sign_extend;
                     lsq_mem_read = 1; 
                 end
             end
         end
     end
     
-    // PRF Write Arbiter
+    // PRF Write Arbiter (Fix: Eliminated latches & added explicit bit-width casting)
     always_comb begin
+        logic [LQ_ADDRESS-1:0] lq_idx2;
+        lq_idx2 = '0;
+        
         lsq_write_prf = 0; lsq_write_prf_address = '0; lsq_write_prf_data = '0;
-        lsq_rob_index = '0; // Provide ROB index to Arbiter
+        lsq_rob_index = '0; 
         for (int offset = 0; offset < LQ_ENTRIES; offset++) begin
             if (offset < lq_count) begin
-                logic [LQ_ADDRESS-1:0] idx;
-                idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + offset);
-                if (LQ[idx].prd_available && !lsq_write_prf) begin
+                lq_idx2 = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(offset));
+                if (LQ[lq_idx2].prd_available && !lsq_write_prf) begin
                     lsq_write_prf = 1;
-                    lsq_write_prf_address = LQ[idx].prd;
-                    lsq_write_prf_data = LQ[idx].prd_data;
-                    lsq_rob_index = LQ[idx].age[ROB_PTR_SIZE-1:0];
+                    lsq_write_prf_address = LQ[lq_idx2].prd;
+                    lsq_write_prf_data = LQ[lq_idx2].prd_data;
+                    lsq_rob_index = LQ[lq_idx2].age[ROB_PTR_SIZE-1:0];
                 end
             end
         end
@@ -214,7 +234,8 @@ module LSQ #(
     
     always_comb begin
         load1_violation_flush = (lq_count > 0) ? LQ[lq_head[LQ_ADDRESS-1:0]].violated : 1'b0;
-        load2_violation_flush = (lq_count > 1) ? LQ[LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + 1)].violated : 1'b0;
+        // Fix: Explicitly cast '1' to LQ_ADDRESS size
+        load2_violation_flush = (lq_count > 1) ? LQ[LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(1))].violated : 1'b0;
     end
 
     always_ff @(posedge CLK) begin
@@ -230,7 +251,8 @@ module LSQ #(
             sq_head <= sq_head + (SQ_ADDRESS+1)'(commit_is_store1) + (SQ_ADDRESS+1)'(commit_is_store2);
 
             if (commit_is_store1) SQ[sq_head[SQ_ADDRESS-1:0]].committed <= 1;
-            if (commit_is_store2) SQ[SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + 1)].committed <= 1;
+            // Fix: explicit casting for SQ index addition
+            if (commit_is_store2) SQ[SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + SQ_ADDRESS'(1))].committed <= 1;
 
             if (flush) begin
                 lq_tail <= lq_tail_snapshot[ex_branch_rob_index];
@@ -262,7 +284,8 @@ module LSQ #(
                 LQ[lq_tail[LQ_ADDRESS-1:0]].forwarding_stalled <= 0;
             end
             if (rn_memtoreg2 && rn_valid2) begin
-                logic [LQ_ADDRESS-1:0] t2 = lq_tail[LQ_ADDRESS-1:0] + LQ_ADDRESS'(rn_memtoreg1);
+                logic [LQ_ADDRESS-1:0] t2;
+                t2 = LQ_ADDRESS'(lq_tail[LQ_ADDRESS-1:0] + LQ_ADDRESS'(rn_memtoreg1));
                 LQ[t2].speculative_execution <= 0;
                 LQ[t2].age <= current_rob_index + 1;
                 LQ[t2].address_available <= 0;
@@ -284,7 +307,8 @@ module LSQ #(
                 SQ[sq_tail[SQ_ADDRESS-1:0]].size <= rn_memory_type1;
             end
             if (rn_memwrite2 && rn_valid2) begin
-                logic [SQ_ADDRESS-1:0] st2 = sq_tail[SQ_ADDRESS-1:0] + SQ_ADDRESS'(rn_memwrite1);
+                logic [SQ_ADDRESS-1:0] st2;
+                st2 = SQ_ADDRESS'(sq_tail[SQ_ADDRESS-1:0] + SQ_ADDRESS'(rn_memwrite1));
                 SQ[st2].age <= current_rob_index + 1;
                 SQ[st2].committed <= 0;
                 SQ[st2].address_available <= 0;
@@ -356,7 +380,7 @@ module LSQ #(
             for (int offset = 0; offset < LQ_ENTRIES; offset++) begin
                 if (offset < lq_count) begin
                     logic [LQ_ADDRESS-1:0] idx;
-                    idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + offset);
+                    idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(offset));
                     if (LQ[idx].forwarding_stalled) begin
                         if (SQ[LQ[idx].forwarding_sq_index].prs2_available) begin
                             LQ[idx].prd_available <= 1;
@@ -385,12 +409,11 @@ module LSQ #(
                 LQ[mem_lq_index].mem_read <= 0; 
             end
 
-            // PRF WRITE ACKNOWLEDGMENT (Holding pen clear)
             if (lsq_ack) begin
                 for (int offset = 0; offset < LQ_ENTRIES; offset++) begin
                     if (offset < lq_count) begin
                         logic [LQ_ADDRESS-1:0] idx;
-                        idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + offset);
+                        idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(offset));
                         if (LQ[idx].prd == lsq_write_prf_address && LQ[idx].prd_available) begin
                             LQ[idx].prd_available <= 0; 
                         end
@@ -402,7 +425,7 @@ module LSQ #(
                 for (int offset = 0; offset < SQ_ENTRIES; offset++) begin
                     if (offset < sq_count) begin
                         logic [SQ_ADDRESS-1:0] idx;
-                        idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + offset);
+                        idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + SQ_ADDRESS'(offset));
                         if (!SQ[idx].prs2_available && (cdb_tag1_broadcast == SQ[idx].prs2)) begin
                             SQ[idx].prs2_available <= 1;
                             SQ[idx].prs2_data <= cdb_result1_broadcast;
@@ -414,7 +437,7 @@ module LSQ #(
                 for (int offset = 0; offset < SQ_ENTRIES; offset++) begin
                     if (offset < sq_count) begin
                         logic [SQ_ADDRESS-1:0] idx;
-                        idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + offset);
+                        idx = SQ_ADDRESS'(sq_head[SQ_ADDRESS-1:0] + SQ_ADDRESS'(offset));
                         if (!SQ[idx].prs2_available && (cdb_tag2_broadcast == SQ[idx].prs2)) begin
                             SQ[idx].prs2_available <= 1;
                             SQ[idx].prs2_data <= cdb_result2_broadcast;
@@ -444,7 +467,7 @@ module LSQ #(
                 for (int offset = 0; offset < LQ_ENTRIES; offset++) begin
                     if (offset < lq_count) begin
                         logic [LQ_ADDRESS-1:0] idx;
-                        idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + offset);
+                        idx = LQ_ADDRESS'(lq_head[LQ_ADDRESS-1:0] + LQ_ADDRESS'(offset));
                         
                         if (LQ[idx].speculative_execution && LQ[idx].address_available) begin 
                             if (ex_mem_address1_available && ex_is_store1 && 
