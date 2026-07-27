@@ -36,7 +36,7 @@ module tb_main_datapath();
     );
 
     // Clock Generation
-    always #5 CLK = ~CLK;
+    always #1 CLK = ~CLK;
 
     initial begin
         $dumpfile("waveform.vcd");
@@ -47,11 +47,11 @@ module tb_main_datapath();
         reset = 1; 
 
         // Hold reset for a few cycles
-        #20 reset = 0;
+        #2 reset = 0;
 
         // Allow the processor core to run
         // You can increase this delay depending on how long your instructions take to fetch/execute
-        #100; 
+        #500; 
 
         $finish;
     end
