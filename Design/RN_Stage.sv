@@ -11,6 +11,7 @@ module RN_Stage #(
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
     input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, stall_frontend, rob_global_flush,
+    input logic [31:0][PRF_ADDRESS-1:0] amt_state,
     input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
     input logic id_is_m_extension1, id_is_m_extension2,
     input logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
@@ -118,6 +119,8 @@ module RN_Stage #(
         .reset              (reset),
         .restore_rmt        (flush),
         .stall_frontend     (stall_frontend),
+        .rob_global_flush   (rob_global_flush),
+        .amt_state          (amt_state),
         .reg_write1         (id_regwrite1 && id_valid1), 
         .reg_write2         (id_regwrite2 && id_valid2),
         .id_valid1          (id_valid1),
@@ -164,6 +167,8 @@ module RN_Stage #(
         .reset              (reset),
         .flush              (flush),
         .stall_frontend     (stall_frontend),
+        .rob_global_flush   (rob_global_flush),
+        .amt_state          (amt_state),
         .pop1               (pop1),
         .pop2               (pop2),
         .id_branch1         (id_branch1),

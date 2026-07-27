@@ -329,6 +329,10 @@ module main_datapath #(
     logic [ROB_PTR_SIZE-1:0] cdb1_rob_index, cdb2_rob_index;
     logic lsq_ack, stall_issue;
 
+    logic [31:0][PRF_ADDRESS-1:0] amt_state;
+    logic comm_free_push1, comm_free_push2;
+    logic [PRF_ADDRESS-1:0] comm_free_reg1, comm_free_reg2;
+
     // ============================================================================
     // MODULE INSTANTIATIONS
     // ============================================================================
@@ -517,9 +521,13 @@ module main_datapath #(
         .id_valid2           (id_valid2),
         .cdb_wakeup1         (cdb1_valid),
         .cdb_wakeup2         (cdb2_valid),
-        .comm_free_push1     (commit_instr1),
-        .comm_free_push2     (commit_instr2),
+
+        .amt_state           (amt_state),          
+        .comm_free_push1     (comm_free_push1),   
+        .comm_free_push2     (comm_free_push2),    
         .cdb_branch_resolved (cdb_branch_resolved),
+        .comm_free_reg1      (comm_free_reg1),    
+        .comm_free_reg2      (comm_free_reg2),   
 
         .id_is_m_extension1  (id_is_m_extension1), .id_is_m_extension2(id_is_m_extension2),
         .id_jump_reg1        (id_jump_reg1), .id_jump_reg2(id_jump_reg2),
@@ -536,8 +544,6 @@ module main_datapath #(
 
         .cdb_waked_reg1      (cdb1_prd),
         .cdb_waked_reg2      (cdb2_prd),
-        .comm_free_reg1      (dis_free_old_prd1),
-        .comm_free_reg2      (dis_free_old_prd2),
         .cdb_branch_tag      (cdb_branch_tag),
 
         .id_rs1_1            (id_rs1_1), .id_rs2_1(id_rs2_1), .id_rd_1(id_rd_1),
@@ -916,7 +922,27 @@ module main_datapath #(
         .div_ack        (div_ack),
         .stall_issue    (stall_issue)
     );
-
+    CM_Stage #(
+        .XLEN(XLEN),
+        .PRF_ADDRESS(PRF_ADDRESS)
+    ) cm_stage_inst (
+        .CLK(CLK),
+        .reset(reset),
+        .commit_instr1(commit_instr1),
+        .commit_instr2(commit_instr2),
+        .comm_rd1(comm_rd1),
+        .comm_rd2(comm_rd2),
+        .comm_prd1(comm_prd1),
+        .comm_prd2(comm_prd2),
+        .dis_free_old_prd1(dis_free_old_prd1),
+        .dis_free_old_prd2(dis_free_old_prd2),
+        
+        .comm_free_push1(comm_free_push1),
+        .comm_free_push2(comm_free_push2),
+        .comm_free_reg1(comm_free_reg1),
+        .comm_free_reg2(comm_free_reg2),
+        .amt_state(amt_state)
+    );
 endmodule
 
 // =================================================================================
