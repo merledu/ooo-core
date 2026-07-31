@@ -111,5 +111,6 @@ Possible components include:
 ## Author
 
 Mutahir Ahmed Siddiqui
+Research Fellow @ Micro Electronics Research Lab - UITU
 
 ---
