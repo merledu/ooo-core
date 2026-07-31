@@ -9,6 +9,10 @@ module RMT #(
     input logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2, cdb_waked_reg1, cdb_waked_reg2,
     input logic [31:0][PRF_ADDRESS-1:0] bs_rmt_snap,
     
+
+    input logic rob_global_flush,
+    input logic [31:0][PRF_ADDRESS-1:0] amt_state,
+    
     output logic prs1_busy1, prs2_busy1, prs1_busy2, prs2_busy2,
     output logic [PRF_ADDRESS-1:0] prd1, prs1_1, prs2_1, old_prd1,
     output logic [PRF_ADDRESS-1:0] prd2, prs1_2, prs2_2, old_prd2,
@@ -79,6 +83,18 @@ module RMT #(
             prs2_busy1 <= 0; 
             prs1_busy2 <= 0; 
             prs2_busy2 <= 0;
+        end
+        else if (rob_global_flush) begin
+            for (int i = 0; i < 32; i++) begin
+                RMT[i] <= amt_state[i];
+            end
+            busy_table <= 0;
+            prs1_busy1 <= 0; prs2_busy1 <= 0; 
+            prs1_busy2 <= 0; prs2_busy2 <= 0;
+            old_prd1 <= '0;  old_prd2 <= '0;
+            prd1 <= '0;      prd2 <= '0;
+            prs1_1 <= '0;    prs2_1 <= '0; 
+            prs1_2 <= '0;    prs2_2 <= '0;
         end
         else begin
             // 1. CDB Wakeups happen NO MATTER WHAT

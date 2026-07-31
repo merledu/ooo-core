@@ -5,10 +5,12 @@ module FL #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
-    input logic CLK, reset, flush, stall_frontend, push1, push2, pop1, pop2,
+    input logic CLK, reset, flush, stall_frontend, rob_global_flush, push1, push2, pop1, pop2,
     input logic id_branch1, id_jump1, id_valid1,
     input logic [PRF_ADDRESS-1:0] comm_free_reg1, comm_free_reg2,
     input logic [FL_PTR_WIDTH-1:0] bs_head_ptr_snap,
+    input logic [31:0][PRF_ADDRESS-1:0] amt_state,
+
     output logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2,
     output logic [FL_PTR_WIDTH-1:0] fl_head_ptr,
     output logic fl_empty
@@ -39,14 +41,37 @@ module FL #(
         end
     end
 
+    // which physical registers are currently in the AMT
+    logic [NUM_PHY_REG-1:0] is_in_amt;
+    always_comb begin
+        is_in_amt = '0;
+        for (int i = 0; i < 32; i++) begin
+            is_in_amt[amt_state[i]] = 1'b1;
+        end
+    end
 
     always_ff @(posedge CLK) begin
         if (reset) begin
             for (int i = 32; i < NUM_PHY_REG; i++) begin
                 FL[i-32] <= PRF_ADDRESS'(i);
             end
-            head <= '0; // ALL ZEROS
-            tail <= {1'b1, {FL_INDEX_WIDTH{1'b0}}}; // IS FULL (BACK TO HEAD)
+            head <= '0;
+            tail <= {1'b1, {FL_INDEX_WIDTH{1'b0}}}; 
+        end
+        else if (rob_global_flush) begin
+            // rebuild the Free List by collecting all PRFs in the AMT
+            logic [FL_PTR_WIDTH-1:0] temp_tail;
+            temp_tail = '0;
+            
+            for (int i = 1; i < NUM_PHY_REG; i++) begin // Start at 1 (p0 is hardwired 0)
+                if (!is_in_amt[i]) begin
+                    FL[temp_tail[FL_INDEX_WIDTH-1:0]] <= PRF_ADDRESS'(i);
+                    temp_tail = temp_tail + FL_PTR_WIDTH'(1);
+                end
+            end
+            
+            head <= '0;
+            tail <= temp_tail; 
         end
         else begin
             head <= next_head;
