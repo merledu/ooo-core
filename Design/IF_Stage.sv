@@ -4,7 +4,7 @@ module IF_Stage #(
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3
 ) (
-    input logic CLK, reset, flush, pd_valid1, pd_valid2, stall_frontend,
+    input logic CLK, reset, flush, pd_valid1, pd_valid2, stall_frontend, rob_global_flush,
     input logic pd_pred_taken, pd_btb_hit,
     input logic [XLEN-1:0] pd_pc, pd_pred_target,
     input logic [PHT_ADDRESS-1:0] pd_pht_index,
@@ -32,8 +32,8 @@ module IF_Stage #(
             if_valid2 <= 0;
         end
         else if(!stall_frontend) begin
-            if_valid1 <= (!flush && pd_valid1);
-            if_valid2 <= (!flush && pd_valid2);  
+            if_valid1 <= (!flush && !rob_global_flush) && pd_valid1;
+            if_valid2 <= (!flush && !rob_global_flush) && pd_valid2;  
             if_pred_taken <= pd_pred_taken;
             if_btb_hit <= pd_btb_hit;
             if_pc <= pd_pc[XLEN-1:2];

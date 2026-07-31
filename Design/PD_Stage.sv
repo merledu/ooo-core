@@ -5,13 +5,14 @@ module PD_Stage #(
     parameter RAS_ADDRESS = 3
 )(
     input logic CLK, reset, stall_frontend, ex_actual_taken, restore_ghr, restore_ras, update_pht, 
-    input logic ex_is_jalr, ex_is_ret, ex_is_branch, flush, //flush = flush(from ex)
+    input logic ex_is_jalr, ex_is_ret, ex_is_branch, flush, rob_global_flush,
     input logic [1:0] if_predecode_instr1, if_predecode_instr2,
     input logic [XLEN-1:0] ex_actual_target_address, if_target_address, if_pc, ex_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
     input logic [PHT_ADDRESS-1:0] rb_pht_index,
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
+    input logic [XLEN-3:0] rob_flush_pc,
 
     output logic pd_pred_taken, pd_btb_hit, pd_valid1, pd_valid2,
     output logic [XLEN-1:0] pd_pc, pd_pred_target,
@@ -37,12 +38,12 @@ module PD_Stage #(
             pd_valid2 <= 0;
         end
         else if (!stall_frontend) begin
-            pd_valid1 <= !flush;
-            pd_valid2 <= !flush && !squash_instruction;
+            pd_valid1 <= !flush && !rob_global_flush;
+            pd_valid2 <= (!flush && !rob_global_flush) && !squash_instruction;
             pd_pht_index <= pht_index;
             pd_prev_ghr <= prev_ghr;
             pht_index <= ghr_out ^ next_pc[PHT_ADDRESS+1:2];
-            pd_pred_taken <= btb_hit && pred_taken && btb_is_branch;
+            pd_pred_taken <= is_return_instr || (btb_hit && (!btb_is_branch || pred_taken));
             pd_pred_target <= (is_return_instr)? pred_return_address : pred_target_address;
             pd_pc <= next_pc;
             pd_btb_hit <= btb_hit;
@@ -69,10 +70,12 @@ module PD_Stage #(
         .CLK                        (CLK),
         .reset                      (reset),
         .flush                      (flush),
+        .rob_global_flush           (rob_global_flush),
         .stall_frontend             (stall_frontend),
         .ras_target_address         (pred_return_address), 
         .btb_target_address         (pred_target_address),
         .ex_actual_target_address   (ex_actual_target_address),
+        .rob_flush_pc               (rob_flush_pc),
         .is_return_instr            (is_return_instr),
         .btb_hit                    (btb_hit),
         .pht_pred_taken             (pred_taken), 

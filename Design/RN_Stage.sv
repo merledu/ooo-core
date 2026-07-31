@@ -10,7 +10,7 @@ module RN_Stage #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
-    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, stall_frontend,
+    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, stall_frontend, rob_global_flush,
     input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
     input logic id_is_m_extension1, id_is_m_extension2,
     input logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
@@ -25,6 +25,8 @@ module RN_Stage #(
     input logic [BIQ_ADDRESS-1:0] id_biq_address,
     input logic [XLEN-3:0] id_pc,
     input logic [4:0] id_alu_operation1, id_alu_operation2,
+    input logic [1:0] id_memory_type1, id_memory_type2, 
+    input logic id_memory_sign_ext1, id_memory_sign_ext2,
     
     output logic rn_stall_frontend,
     output logic [PRF_ADDRESS-1:0] rn_prd1, rn_prs1_1, rn_prs2_1, rn_old_prd1, 
@@ -42,10 +44,14 @@ module RN_Stage #(
     output logic rn_valid1, rn_jump_reg1, rn_jump1, rn_branch1, 
     output logic rn_regsrc1_1, rn_regsrc2_1, rn_immtype1, rn_isimm1, rn_retaddr1,
     output logic rn_upperimm1, rn_regwrite1, rn_memwrite1, rn_memtoreg1, 
+    output logic [1:0] rn_memory_type1,  
+    output logic rn_memory_sign_ext1,
 
     output logic rn_valid2, rn_jump_reg2, rn_jump2, rn_branch2, 
     output logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
-    output logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2
+    output logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
+    output logic [1:0] rn_memory_type2,  
+    output logic rn_memory_sign_ext2
 );
     logic [PRF_ADDRESS-1:0] fl_freed_reg1, fl_freed_reg2;        
     logic [31:0][PRF_ADDRESS-1:0] rmt_snap, bs_rmt_snap;
@@ -67,7 +73,7 @@ module RN_Stage #(
         // Instruction 1 Control Signals
         rn_is_m_extension1  <= id_is_m_extension1;
         rn_rd_1             <= id_rd_1;
-        rn_valid1           <= id_valid1 && !flush && !stall_frontend;
+        rn_valid1           <= id_valid1 && (!flush && !rob_global_flush) && !stall_frontend;
         rn_immout1          <= id_immout1;
         rn_alu_operation1   <= id_alu_operation1;
         rn_jump_reg1        <= id_jump_reg1;
@@ -82,10 +88,13 @@ module RN_Stage #(
         rn_memwrite1        <= id_memwrite1;
         rn_memtoreg1        <= id_memtoreg1;
         rn_retaddr1         <= id_retaddr1;
+        rn_memory_type1     <= id_memory_type1;
+        rn_memory_sign_ext1 <= id_memory_sign_ext1;
+
         // Instruction 2 Control Signals
         rn_is_m_extension2  <= id_is_m_extension2;
         rn_rd_2             <= id_rd_2;
-        rn_valid2           <= id_valid2 && !flush && !stall_frontend;
+        rn_valid2           <= id_valid2 && (!flush && !rob_global_flush) && !stall_frontend;
         rn_immout2          <= id_immout2;
         rn_alu_operation2   <= id_alu_operation2;
         rn_jump_reg2        <= id_jump_reg2;
@@ -100,6 +109,8 @@ module RN_Stage #(
         rn_memwrite2        <= id_memwrite2;
         rn_memtoreg2        <= id_memtoreg2;
         rn_retaddr2         <= id_retaddr2;
+        rn_memory_type2     <= id_memory_type2;
+        rn_memory_sign_ext2 <= id_memory_sign_ext2;
     end
     
     RMT rmt_instantiation (
@@ -177,6 +188,7 @@ module RN_Stage #(
         .reset                  (reset),
         .id_take_snap           (id_take_snap && !stall_frontend && !flush),  //if branch instructions then take snapshot
         .flush                  (flush),
+        .rob_global_flush       (rob_global_flush),
         .rmt_snap               (rmt_snap),           
         .freelist_head_snap     (fl_head_ptr),   
         .id_branch1             (id_branch1),
