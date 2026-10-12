@@ -2,7 +2,7 @@ module RMT #(
     parameter PRF_ADDRESS = 6,
     parameter NUM_PHY_REG = 1 << PRF_ADDRESS
 ) (
-    input logic CLK, reset, restore_rmt, stall_frontend, reg_write1, reg_write2, cdb_wakeup1, cdb_wakeup2,
+    input logic CLK, reset, restore_rmt, rename_en, rn_advance, reg_write1, reg_write2, cdb_wakeup1, cdb_wakeup2,
     input logic id_branch1, id_jump1, id_valid1, id_valid2,
     input logic [4:0] rd1, rs1_1, rs2_1,
     input logic [4:0] rd2, rs1_2, rs2_2,
@@ -45,7 +45,7 @@ module RMT #(
         if (restore_rmt) begin
             next_RMT_inst1 = bs_rmt_snap;
         end
-        else if (reg_write1 && (rd1 != 5'b0) && !stall_frontend && id_valid1) begin
+        else if (reg_write1 && (rd1 != 5'b0) && rename_en && id_valid1) begin
             next_RMT_inst1[rd1] = fl_freed_reg1;
         end
 
@@ -53,7 +53,7 @@ module RMT #(
         // THIS MUST HAPPEN UNCONDITIONALLY! (Removed the 'else begin' wrapper)
         next_RMT = next_RMT_inst1; 
         
-        if (!restore_rmt && reg_write2 && (rd2 != 5'b0) && !stall_frontend && id_valid2) begin
+        if (!restore_rmt && reg_write2 && (rd2 != 5'b0) && rename_en && id_valid2) begin
             next_RMT[rd2] = fl_freed_reg2;
         end
 
@@ -106,20 +106,20 @@ module RMT #(
             end
 
             // 2. Map Table Update (Flushes bypass stalls)
-            if (restore_rmt || !stall_frontend) begin
+            if (restore_rmt || rename_en) begin
                 RMT <= next_RMT;
             end
 
             // 3. Busy Table New Allocations
-            if (reg_write1 && (rd1 != 5'b0) && !stall_frontend && id_valid1 && !restore_rmt) begin
+            if (reg_write1 && (rd1 != 5'b0) && rename_en && id_valid1 && !restore_rmt) begin
                 busy_table[fl_freed_reg1] <= 1;      
             end
-            if (reg_write2 && (rd2 != 5'b0) && !stall_frontend && id_valid2 && !restore_rmt) begin
+            if (reg_write2 && (rd2 != 5'b0) && rename_en && id_valid2 && !restore_rmt) begin
                 busy_table[fl_freed_reg2] <= 1;   
             end
             
-            // 4. Output Pipeline Registers (Only update if not stalled!)
-            if (!stall_frontend) begin
+            // 4. Output Pipeline Registers (hold them while dispatch cannot take the bundle)
+            if (rn_advance) begin
                 old_prd1 <= RMT[rd1];
                 old_prd2 <= (reg_write1 && (rd1 == rd2) && (rd1 != 5'b0) && id_valid1) ? fl_freed_reg1 : RMT[rd2];
                 
@@ -147,6 +147,13 @@ module RMT #(
                     prs2_2 <= RMT[rs2_2];
                     prs2_busy2 <= (!wake_rs2_2 && busy_table[RMT[rs2_2]]); 
                 end
+            end
+            else begin
+                // bundle is waiting for dispatch: it must not miss the wakeups broadcasted meanwhile
+                if ((cdb_wakeup1 && (cdb_waked_reg1 == prs1_1)) || (cdb_wakeup2 && (cdb_waked_reg2 == prs1_1))) prs1_busy1 <= 0;
+                if ((cdb_wakeup1 && (cdb_waked_reg1 == prs2_1)) || (cdb_wakeup2 && (cdb_waked_reg2 == prs2_1))) prs2_busy1 <= 0;
+                if ((cdb_wakeup1 && (cdb_waked_reg1 == prs1_2)) || (cdb_wakeup2 && (cdb_waked_reg2 == prs1_2))) prs1_busy2 <= 0;
+                if ((cdb_wakeup1 && (cdb_waked_reg1 == prs2_2)) || (cdb_wakeup2 && (cdb_waked_reg2 == prs2_2))) prs2_busy2 <= 0;
             end
 
         end
