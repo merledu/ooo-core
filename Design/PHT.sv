@@ -2,7 +2,7 @@ module PHT #(
   parameter PHT_ADDRESS  = 9,
   parameter COUNTER_SIZE = 2
 )(
-    input logic CLK, reset, ex_actual_taken, update_pht,
+    input logic CLK, reset, ex_actual_taken, update_pht, read_en,
     input logic [PHT_ADDRESS-1:0] pht_index, rb_pht_index, 
     output logic pred_taken
 );
@@ -32,11 +32,25 @@ module PHT #(
         return new_state;
     endfunction
 
-    always_ff @(posedge CLK) begin
-        if (update_pht) begin
-            PHT[rb_pht_index] <= train_pht(.current_state(PHT[rb_pht_index]), .taken(ex_actual_taken));
+    //counters start as weakly not taken
+    initial begin
+        for (int i = 0; i < (1<<PHT_ADDRESS); i++) begin
+            PHT[i] = 2'b01;
         end
-        pred_taken <= PHT[pht_index][1];
+    end
+
+    always_ff @(posedge CLK) begin
+        if (reset) begin
+            pred_taken <= 0;
+        end
+        else begin
+            if (update_pht) begin
+                PHT[rb_pht_index] <= train_pht(.current_state(PHT[rb_pht_index]), .taken(ex_actual_taken));
+            end
+            if (read_en) begin
+                pred_taken <= PHT[pht_index][1];
+            end
+        end
     end
 
 endmodule
