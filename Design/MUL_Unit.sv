@@ -55,6 +55,7 @@ module MUL_Unit #(
     logic [PRF_ADDRESS-1:0]  Out_prd_reg;
     logic [ROB_PTR_SIZE-1:0] Out_rob_index_reg;
     logic Out_valid_reg;
+    logic [MAX_BRANCHES-1:0] Out_branch_mask;
 
     // Combinational Logic: RV32 Sign Extension Extraction
     logic is_rs1_signed, is_rs2_signed;
@@ -110,10 +111,15 @@ module MUL_Unit #(
             if (mul_ack) begin
                 Out_valid_reg <= 1'b0;
             end
+            // result waiting for the CDB belongs to the wrong path
+            if (flush && Out_branch_mask[cdb_branch_tag]) begin
+                Out_valid_reg <= 1'b0;
+            end
 
             // 2. TAG ERASER
-            if (cdb_branch_resolved && cdb_branch_correct && state != IDLE) begin
+            if (cdb_branch_resolved) begin
                 saved_branch_mask[cdb_branch_tag] <= 1'b0;
+                Out_branch_mask[cdb_branch_tag] <= 1'b0;
             end
 
             // 3. FLUSH LOGIC
@@ -143,7 +149,7 @@ module MUL_Unit #(
                     
                     PREP: begin
                         state <= MULTIPLY;
-                        iterations <= 5'd16; 
+                        iterations <= 5'd15; // 34 bit multiplier = 17 radix-4 steps: 1 here + 15 + the final one
                         
                         A_reg     <= A_next_state;
                         Q_reg     <= Q_next_state;
@@ -153,30 +159,35 @@ module MUL_Unit #(
                     MULTIPLY: begin
                         if (iterations == 0) begin
                             // MATHEMATICS FINISHED: Dump to Holding Pen
-                            Out_A_reg <= A_next_state[31:0];
-                            Out_Q_reg <= Q_next_state[31:0];
-                            Out_prd_reg <= saved_prd;
-                            Out_rob_index_reg <= saved_rob_index;
-                            Out_alu_op <= saved_alu_op;
-                            
-                            Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
+                            // (wait here if the previous result is still waiting for the CDB)
+                            if (!Out_valid_reg || mul_ack) begin
+                                Out_A_reg <= {A_next_state[29:0], Q_next_state[33:32]}; // bits [63:32] of the 68 bit product {A, Q}
+                                Out_Q_reg <= Q_next_state[31:0];
+                                Out_prd_reg <= saved_prd;
+                                Out_rob_index_reg <= saved_rob_index;
+                                Out_alu_op <= saved_alu_op;
+                                
+                                Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
+                                Out_branch_mask <= (cdb_branch_resolved) ? (saved_branch_mask & ~(MAX_BRANCHES'(1) << cdb_branch_tag)) : saved_branch_mask;
 
-                            // Fast Wakeup Catch
-                            if (valid) begin
-                                state <= PREP;
-                                cdb_mul_busy <= 1'b1; 
-                                
-                                saved_prd         <= rr_prd;
-                                saved_rob_index   <= rr_rob_index;
-                                saved_branch_mask <= rr_branch_mask;   
-                                saved_alu_op      <= alu_operation[1:0];
-                                
-                                M_reg      <= {init_M[33], init_M};
-                                A_reg      <= 34'b0;
-                                Q_reg      <= init_Q;
-                                Q_minus_1  <= 1'b0;
-                            end else begin
-                                state <= IDLE;
+                                // Fast Wakeup Catch
+                                if (valid) begin
+                                    state <= PREP;
+                                    cdb_mul_busy <= 1'b1; 
+                                    
+                                    saved_prd         <= rr_prd;
+                                    saved_rob_index   <= rr_rob_index;
+                                    saved_branch_mask <= rr_branch_mask;   
+                                    saved_alu_op      <= alu_operation[1:0];
+                                    
+                                    M_reg      <= {init_M[33], init_M};
+                                    A_reg      <= 34'b0;
+                                    Q_reg      <= init_Q;
+                                    Q_minus_1  <= 1'b0;
+                                end else begin
+                                    state <= IDLE;
+                                    cdb_mul_busy <= 1'b0;
+                                end
                             end
                         end 
                         else begin
@@ -186,7 +197,8 @@ module MUL_Unit #(
                             
                             iterations <= iterations - 1;
                             
-                            if (iterations == 1) cdb_mul_busy <= 1'b0; 
+                            // early release: the next multiplication needs 2 cycles to arrive from the issue queue
+                            if (iterations == 1 && !Out_valid_reg) cdb_mul_busy <= 1'b0; 
                         end
                     end
                     
