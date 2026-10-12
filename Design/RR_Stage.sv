@@ -6,9 +6,10 @@ module RR_Stage #(
     parameter INIT_IMMEDIATE_SIZE = 21,
     parameter BIQ_ADDRESS = 5,
     parameter ROB_SIZE = 64,
-    parameter ROB_PTR_SIZE = $clog2(ROB_SIZE)
+    parameter ROB_PTR_SIZE = $clog2(ROB_SIZE),
+    parameter MEM_INDEX_SIZE = 5
 ) (
-    input logic CLK, reset, flush, cdb_regwrite1, cdb_regwrite2, rob_global_flush,
+    input logic CLK, reset, flush, cdb_regwrite1, cdb_regwrite2, rob_global_flush, cdb_branch_resolved,
     input logic [BTAG_SIZE-1:0] cdb_branch_tag,
     input logic [PRF_ADDRESS-1:0] cdb_write_address1, cdb_write_address2,
     input logic [XLEN-1:0] cdb_write_data1, cdb_write_data2,
@@ -25,6 +26,7 @@ module RR_Stage #(
     input logic [MAX_BRANCHES-1:0] iss_branch_mask1,
     input logic [BIQ_ADDRESS-1:0] iss_biq_address1,
     input logic [ROB_PTR_SIZE-1:0] iss_rob_index1,
+    input logic [MEM_INDEX_SIZE-1:0] iss_mem_index1,
 
     // Issued Instruction 2
     input logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
@@ -38,6 +40,7 @@ module RR_Stage #(
     input logic [MAX_BRANCHES-1:0] iss_branch_mask2,
     input logic [BIQ_ADDRESS-1:0] iss_biq_address2,
     input logic [ROB_PTR_SIZE-1:0] iss_rob_index2,
+    input logic [MEM_INDEX_SIZE-1:0] iss_mem_index2,
 
     output logic [XLEN-1:0] rr_instr1_read_data1, rr_instr1_read_data2,
     output logic [XLEN-1:0] rr_instr2_read_data1, rr_instr2_read_data2,
@@ -56,6 +59,7 @@ module RR_Stage #(
     output logic [MAX_BRANCHES-1:0]        rr_branch_mask1,
     output logic [BIQ_ADDRESS-1:0]         rr_biq_address1,
     output logic [ROB_PTR_SIZE-1:0]        rr_rob_index1,
+    output logic [MEM_INDEX_SIZE-1:0]      rr_mem_index1,
     
     // Instruction 2 Outputs
     output logic rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2,
@@ -68,11 +72,23 @@ module RR_Stage #(
     output logic [BTAG_SIZE-1:0]           rr_branch_tag2,
     output logic [MAX_BRANCHES-1:0]        rr_branch_mask2,
     output logic [BIQ_ADDRESS-1:0]         rr_biq_address2,
-    output logic [ROB_PTR_SIZE-1:0]        rr_rob_index2
+    output logic [ROB_PTR_SIZE-1:0]        rr_rob_index2,
+    output logic [MEM_INDEX_SIZE-1:0]      rr_mem_index2
 );
+    logic [XLEN-1:0] immediate1, immediate2;
+    logic [MAX_BRANCHES-1:0] resolved_tag_bit;
+
+    assign resolved_tag_bit = (cdb_branch_resolved) ? (MAX_BRANCHES'(1) << cdb_branch_tag) : '0;
+
     always_ff @(posedge CLK) begin
-        rr_valid1 <= iss_valid1 && (!(flush && iss_branch_mask1[cdb_branch_tag]) && !rob_global_flush);   
-        rr_valid2 <= iss_valid2 && (!(flush && iss_branch_mask2[cdb_branch_tag]) && !rob_global_flush);   
+        if (reset) begin
+            rr_valid1 <= 0;
+            rr_valid2 <= 0;
+        end
+        else begin
+            rr_valid1 <= iss_valid1 && (!(flush && iss_branch_mask1[cdb_branch_tag]) && !rob_global_flush);   
+            rr_valid2 <= iss_valid2 && (!(flush && iss_branch_mask2[cdb_branch_tag]) && !rob_global_flush);   
+        end
         rr_instr1_prs1 <= iss_instr1_prs1;
         rr_instr1_prs2 <= iss_instr1_prs2;
         rr_instr2_prs1 <= iss_instr2_prs1;
@@ -95,9 +111,11 @@ module RR_Stage #(
         rr_prd1            <= iss_prd1;
         rr_alu_operation1  <= iss_alu_operation1;
         rr_branch_tag1     <= iss_branch_tag1;
-        rr_branch_mask1    <= iss_branch_mask1;
+        rr_branch_mask1    <= iss_branch_mask1 & ~resolved_tag_bit; //resolved branch is no longer a dependency
         rr_biq_address1    <= iss_biq_address1;
         rr_rob_index1      <= iss_rob_index1;
+        rr_mem_index1      <= iss_mem_index1;
+        rr_immediate1      <= immediate1;
 
         //for 2nd instruction
         rr_is_m_extension2 <= iss_is_m_extension2;
@@ -116,12 +134,17 @@ module RR_Stage #(
         rr_prd2            <= iss_prd2;
         rr_alu_operation2  <= iss_alu_operation2;
         rr_branch_tag2     <= iss_branch_tag2;
-        rr_branch_mask2    <= iss_branch_mask2;
+        rr_branch_mask2    <= iss_branch_mask2 & ~resolved_tag_bit;
         rr_biq_address2    <= iss_biq_address2;
         rr_rob_index2      <= iss_rob_index2;
+        rr_mem_index2      <= iss_mem_index2;
+        rr_immediate2      <= immediate2;
     end
     
-    PRF prf_instantiation (
+    PRF #(
+        .PRF_ADDRESS         (PRF_ADDRESS),
+        .XLEN                (XLEN)
+    ) prf_instantiation (
         .CLK                 (CLK),
         .reset               (reset),
         .cdb_regwrite1       (cdb_regwrite1),
@@ -139,12 +162,15 @@ module RR_Stage #(
         .rr_instr2_read_data1(rr_instr2_read_data1),
         .rr_instr2_read_data2(rr_instr2_read_data2)
     );
-    IG ig_instantiation (
+    IG #(
+        .INIT_IMMEDIATE_SIZE(INIT_IMMEDIATE_SIZE),
+        .XLEN          (XLEN)
+    ) ig_instantiation (
         .iss_immediate1(iss_immediate1),
         .iss_immediate2(iss_immediate2),
         .iss_immtype1  (iss_immtype1),
         .iss_immtype2  (iss_immtype2),
-        .rr_immediate1 (rr_immediate1),
-        .rr_immediate2 (rr_immediate2)
+        .rr_immediate1 (immediate1),
+        .rr_immediate2 (immediate2)
     );
 endmodule
