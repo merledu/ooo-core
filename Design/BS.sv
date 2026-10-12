@@ -47,7 +47,8 @@ module BS #(
     assign bs_full = &BMR;
     //to dispatch stage
     assign bs_branch_tag = current_btag;
-    assign bs_branch_mask = BMR;
+    //a branch resolved in this cycle is no longer a dependency of the instructions renamed in this cycle
+    assign bs_branch_mask = (cdb_branch_resolved) ? (BMR & ~(MAX_BRANCHES'(1) << cdb_branch_tag)) : BMR;
 
     always_ff @(posedge CLK) begin
         if (reset || rob_global_flush) begin
@@ -71,7 +72,7 @@ module BS #(
                 BMR[current_btag] <= 1'b1;
                 BS[current_btag].rmt_snapshot <= rmt_snap;
                 BS[current_btag].freelist_head_snapshot <= freelist_head_snap;
-                BS[current_btag].bmr_snapshot <= (cdb_branch_resolved) ? (BMR & ~(1 << cdb_branch_tag)) : BMR;
+                BS[current_btag].bmr_snapshot <= bs_branch_mask;
             end
         end
     end
