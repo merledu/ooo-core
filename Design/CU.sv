@@ -5,7 +5,8 @@ module CU #(
     input logic [6:0] funct7,
     output logic [2:0] ALUOp,
     output logic is_m_extension, JumpReg, Jump, Branch, RegSrc1, RegSrc2, UpperImm, RegWrite, 
-    output logic MemWrite, MemToReg, RetAddr, imm, valid_opcode 
+    output logic MemWrite, MemToReg, RetAddr, imm, valid_opcode,
+    output logic UseRs1, UseRs2 //instruction really reads rs1 / rs2 (otherwise those bits belong to the immediate)
 );
    
     always_comb begin
@@ -167,6 +168,17 @@ module CU #(
                         opcode == 7'b1101111 ||
                         opcode == 7'b0110111 ||
                         opcode == 7'b0010111);
+
+        UseRs1 = (opcode == 7'b0110011 ||   // R type
+                  opcode == 7'b0010011 ||   // I type
+                  opcode == 7'b0000011 ||   // load
+                  opcode == 7'b0100011 ||   // store
+                  opcode == 7'b1100011 ||   // branch
+                  opcode == 7'b1100111);    // jalr
+
+        UseRs2 = (opcode == 7'b0110011 ||   // R type
+                  opcode == 7'b0100011 ||   // store
+                  opcode == 7'b1100011);    // branch
     end
 
 endmodule
