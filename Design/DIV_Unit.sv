@@ -55,6 +55,7 @@ module DIV_Unit #(
     logic Out_sign_q, Out_sign_r, Out_is_rem;
     logic Out_div_by_zero, Out_overflow;
     logic Out_valid_reg;
+    logic [MAX_BRANCHES-1:0] Out_branch_mask;
 
     // Combinational Logic: Math Prep
     logic is_signed, in_is_rem;
@@ -112,10 +113,15 @@ module DIV_Unit #(
             if (div_ack) begin
                 Out_valid_reg <= 1'b0;
             end
+            // result waiting for the CDB belongs to the wrong path
+            if (flush && Out_branch_mask[cdb_branch_tag]) begin
+                Out_valid_reg <= 1'b0;
+            end
 
             // 2. TAG ERASER
-            if (cdb_branch_resolved && cdb_branch_correct && state != IDLE) begin
+            if (cdb_branch_resolved) begin
                 saved_branch_mask[cdb_branch_tag] <= 1'b0;
+                Out_branch_mask[cdb_branch_tag] <= 1'b0;
             end
 
             // 3. FLUSH LOGIC
@@ -151,34 +157,38 @@ module DIV_Unit #(
                         
                         if (div_by_zero_reg || overflow_reg) begin
                             // EDGE CASE: Skip DIVIDE loop. Dump straight to Holding Pen.
-                            Out_Q_reg <= Q_reg; 
-                            Out_R_reg <= 32'b0;
-                            Out_prd_reg <= saved_prd;
-                            Out_rob_index_reg <= saved_rob_index;
-                            Out_sign_q <= out_sign_q_reg;
-                            Out_sign_r <= out_sign_r_reg;
-                            Out_is_rem <= is_rem_reg;
-                            Out_div_by_zero <= div_by_zero_reg;
-                            Out_overflow <= overflow_reg;
-                            
-                            Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
-                            
-                            // Fast Wakeup Catch
-                            if (valid) begin
-                                saved_prd         <= rr_prd;
-                                saved_rob_index   <= rr_rob_index;
-                                saved_branch_mask <= rr_branch_mask; 
-                                out_sign_q_reg    <= in_out_sign_q;
-                                out_sign_r_reg    <= in_out_sign_r;
-                                is_rem_reg        <= in_is_rem;
-                                div_by_zero_reg   <= in_div_by_zero;
-                                overflow_reg      <= in_overflow;
-                                Q_reg             <= in_abs_dividend;
-                                D_1x              <= {2'b00, in_abs_divisor};
-                                R_reg             <= 32'b0;
-                            end else begin
-                                cdb_div_busy <= 1'b0;
-                                state <= IDLE;
+                            // (wait here if the previous result is still waiting for the CDB)
+                            if (!Out_valid_reg || div_ack) begin
+                                Out_Q_reg <= Q_reg; 
+                                Out_R_reg <= 32'b0;
+                                Out_prd_reg <= saved_prd;
+                                Out_rob_index_reg <= saved_rob_index;
+                                Out_sign_q <= out_sign_q_reg;
+                                Out_sign_r <= out_sign_r_reg;
+                                Out_is_rem <= is_rem_reg;
+                                Out_div_by_zero <= div_by_zero_reg;
+                                Out_overflow <= overflow_reg;
+                                
+                                Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
+                                Out_branch_mask <= (cdb_branch_resolved) ? (saved_branch_mask & ~(MAX_BRANCHES'(1) << cdb_branch_tag)) : saved_branch_mask;
+                                
+                                // Fast Wakeup Catch
+                                if (valid) begin
+                                    saved_prd         <= rr_prd;
+                                    saved_rob_index   <= rr_rob_index;
+                                    saved_branch_mask <= rr_branch_mask; 
+                                    out_sign_q_reg    <= in_out_sign_q;
+                                    out_sign_r_reg    <= in_out_sign_r;
+                                    is_rem_reg        <= in_is_rem;
+                                    div_by_zero_reg   <= in_div_by_zero;
+                                    overflow_reg      <= in_overflow;
+                                    Q_reg             <= in_abs_dividend;
+                                    D_1x              <= {2'b00, in_abs_divisor};
+                                    R_reg             <= 32'b0;
+                                end else begin
+                                    cdb_div_busy <= 1'b0;
+                                    state <= IDLE;
+                                end
                             end
                         end 
                         else begin
@@ -189,36 +199,41 @@ module DIV_Unit #(
                     DIVIDE: begin
                         if (iterations == 0) begin
                             // MATHEMATICS FINISHED: Dump to Holding Pen
-                            Out_Q_reg <= next_Q;
-                            Out_R_reg <= next_R;
-                            Out_prd_reg <= saved_prd;
-                            Out_rob_index_reg <= saved_rob_index;
-                            Out_sign_q <= out_sign_q_reg;
-                            Out_sign_r <= out_sign_r_reg;
-                            Out_is_rem <= is_rem_reg;
-                            Out_div_by_zero <= div_by_zero_reg;
-                            Out_overflow <= overflow_reg;
-                            
-                            Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
-
-                            // Fast Wakeup Catch
-                            if (valid) begin
-                                state <= PREP;
-                                cdb_div_busy <= 1'b1; 
+                            // (wait here if the previous result is still waiting for the CDB)
+                            if (!Out_valid_reg || div_ack) begin
+                                Out_Q_reg <= next_Q;
+                                Out_R_reg <= next_R;
+                                Out_prd_reg <= saved_prd;
+                                Out_rob_index_reg <= saved_rob_index;
+                                Out_sign_q <= out_sign_q_reg;
+                                Out_sign_r <= out_sign_r_reg;
+                                Out_is_rem <= is_rem_reg;
+                                Out_div_by_zero <= div_by_zero_reg;
+                                Out_overflow <= overflow_reg;
                                 
-                                saved_prd         <= rr_prd;
-                                saved_rob_index   <= rr_rob_index;
-                                saved_branch_mask <= rr_branch_mask;  
-                                out_sign_q_reg    <= in_out_sign_q;
-                                out_sign_r_reg    <= in_out_sign_r;
-                                is_rem_reg        <= in_is_rem;
-                                div_by_zero_reg   <= in_div_by_zero;
-                                overflow_reg      <= in_overflow;
-                                Q_reg             <= in_abs_dividend;
-                                D_1x              <= {2'b00, in_abs_divisor};
-                                R_reg             <= 32'b0;
-                            end else begin
-                                state <= IDLE;
+                                Out_valid_reg <= 1'b1; // Trigger Request to Arbiter
+                                Out_branch_mask <= (cdb_branch_resolved) ? (saved_branch_mask & ~(MAX_BRANCHES'(1) << cdb_branch_tag)) : saved_branch_mask;
+
+                                // Fast Wakeup Catch
+                                if (valid) begin
+                                    state <= PREP;
+                                    cdb_div_busy <= 1'b1; 
+                                    
+                                    saved_prd         <= rr_prd;
+                                    saved_rob_index   <= rr_rob_index;
+                                    saved_branch_mask <= rr_branch_mask;  
+                                    out_sign_q_reg    <= in_out_sign_q;
+                                    out_sign_r_reg    <= in_out_sign_r;
+                                    is_rem_reg        <= in_is_rem;
+                                    div_by_zero_reg   <= in_div_by_zero;
+                                    overflow_reg      <= in_overflow;
+                                    Q_reg             <= in_abs_dividend;
+                                    D_1x              <= {2'b00, in_abs_divisor};
+                                    R_reg             <= 32'b0;
+                                end else begin
+                                    state <= IDLE;
+                                    cdb_div_busy <= 1'b0;
+                                end
                             end
                         end 
                         else begin
@@ -226,7 +241,8 @@ module DIV_Unit #(
                             Q_reg <= next_Q;
                             iterations <= iterations - 1;
                             
-                            if (iterations == 1) cdb_div_busy <= 1'b0; 
+                            // early release: the next division needs 2 cycles to arrive from the issue queue
+                            if (iterations == 1 && !Out_valid_reg) cdb_div_busy <= 1'b0; 
                         end
                     end
                     
