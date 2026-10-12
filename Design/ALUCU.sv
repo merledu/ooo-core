@@ -43,7 +43,15 @@ module ALUCU(
 
             8'b101011?0, 8'b000011??: ALUOperation = 5'b01101;
 
-            default: ALUOperation = 5'b11111;
+            // Conditional branches (result bit 0 = branch taken)
+            8'b011000??: ALUOperation = 5'b00100; // BEQ
+            8'b011001??: ALUOperation = 5'b00110; // BNE
+            8'b011100??: ALUOperation = 5'b00111; // BLT
+            8'b011101??: ALUOperation = 5'b01100; // BGE
+            8'b011110??: ALUOperation = 5'b01110; // BLTU
+            8'b011111??: ALUOperation = 5'b01111; // BGEU
+
+            default: ALUOperation = 5'b00010;
         endcase
     end
 endmodule
