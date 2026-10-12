@@ -10,9 +10,11 @@ module DIS_Stage #(
     parameter LQ_ENTRIES = 32,
     parameter LQ_ADDRESS = $clog2(LQ_ENTRIES),
     parameter SQ_ENTRIES = 16,
-    parameter SQ_ADDRESS = $clog2(SQ_ENTRIES)
+    parameter SQ_ADDRESS = $clog2(SQ_ENTRIES),
+    parameter IQ_ROWS = 64,
+    parameter MEM_INDEX_SIZE = (LQ_ADDRESS > SQ_ADDRESS) ? LQ_ADDRESS : SQ_ADDRESS
 ) (
-    input logic CLK, reset, flush, stall_frontend, cdb_mul_busy, cdb_div_busy,
+    input logic CLK, reset, flush, cdb_mul_busy, cdb_div_busy,
     input logic stall_issue, // Arbiter backpressure
     input logic cdb_done1, cdb_done2, cdb_wakeup1, cdb_wakeup2, cdb_branch_resolved,
     input logic [PRF_ADDRESS-1:0] cdb_waked_reg1, cdb_waked_reg2,
@@ -22,7 +24,7 @@ module DIS_Stage #(
     input logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2, rn_old_prd2,             
     input logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
     input logic [BTAG_SIZE-1:0] rn_branch_tag,
-    input logic [MAX_BRANCHES-1:0] rn_branch_mask,
+    input logic [MAX_BRANCHES-1:0] rn_branch_mask1, rn_branch_mask2,
     input logic [BIQ_ADDRESS-1:0] rn_biq_address,
     input logic [XLEN-3:0] rn_pc,
     input logic [4:0] rn_rd_1, rn_rd_2,
@@ -40,27 +42,13 @@ module DIS_Stage #(
     input logic rn_regsrc1_2, rn_regsrc2_2, rn_immtype2, rn_isimm2, rn_retaddr2,
     input logic rn_upperimm2, rn_regwrite2, rn_memwrite2, rn_memtoreg2,
     
-    input logic rn_is_load1, rn_is_load2,  
-    input logic rn_is_store1, rn_is_store2,
-    input logic [ROB_PTR_SIZE-1:0] rn_rob_index1, rn_rob_index2, 
-    
     input logic [ROB_PTR_SIZE-1:0] cdb_branch_rob_index,
-    input logic cdb_address_available1, cdb_is_load1,
-    input logic [LQ_ADDRESS-1:0] cdb_lq_index1,
-    input logic [XLEN-1:0] cdb_memory_address1,
-    input logic cdb_address_available2, cdb_is_load2,
-    input logic [LQ_ADDRESS-1:0] cdb_lq_index2,
-    input logic [XLEN-1:0] cdb_memory_address2,
     input logic ex_mem_address1_available, ex_is_load1, ex_is_store1,
-    input logic [XLEN-1:0] ex_mem_address1,
-    input logic [LQ_ADDRESS-1:0] ex_lq_index1,
-    input logic [SQ_ADDRESS-1:0] ex_sq_index1,
+    input logic [XLEN-1:0] ex_mem_address1, ex_store_data1,
+    input logic [MEM_INDEX_SIZE-1:0] ex_mem_index1,
     input logic ex_mem_address2_available, ex_is_load2, ex_is_store2,
-    input logic [XLEN-1:0] ex_mem_address2,
-    input logic [LQ_ADDRESS-1:0] ex_lq_index2,
-    input logic [SQ_ADDRESS-1:0] ex_sq_index2,
-    input logic cdb_result1_available, cdb_result2_available,
-    input logic [XLEN-1:0] cdb_result1_broadcast, cdb_result2_broadcast,
+    input logic [XLEN-1:0] ex_mem_address2, ex_store_data2,
+    input logic [MEM_INDEX_SIZE-1:0] ex_mem_index2,
     input logic mem_lq_write,
     input logic [LQ_ADDRESS-1:0] mem_lq_index,
     input logic [XLEN-1:0] mem_read_data,
@@ -68,6 +56,7 @@ module DIS_Stage #(
     
     output logic dis_stall_frontend,
     output logic commit_instr1, commit_instr2,
+    output logic [1:0] dis_biq_dealloc, //number of branches committed in this cycle
     output logic [PRF_ADDRESS-1:0] dis_free_old_prd1, dis_free_old_prd2,
     output logic [PRF_ADDRESS-1:0] comm_prd1, comm_prd2,
     output logic [4:0] comm_rd1, comm_rd2,
@@ -83,6 +72,7 @@ module DIS_Stage #(
     output logic [MAX_BRANCHES-1:0] iss_branch_mask1,
     output logic [BIQ_ADDRESS-1:0] iss_biq_address1,
     output logic [ROB_PTR_SIZE-1:0] iss_rob_index1,
+    output logic [MEM_INDEX_SIZE-1:0] iss_mem_index1,
 
     output logic iss_valid2, iss_is_m_extension2, iss_jump_reg2, iss_jump2, iss_branch2, 
     output logic iss_instr2_regsrc1, iss_instr2_regsrc2, iss_immtype2, iss_isimm2, iss_retaddr2,
@@ -95,6 +85,7 @@ module DIS_Stage #(
     output logic [MAX_BRANCHES-1:0] iss_branch_mask2,
     output logic [BIQ_ADDRESS-1:0] iss_biq_address2,
     output logic [ROB_PTR_SIZE-1:0] iss_rob_index2,
+    output logic [MEM_INDEX_SIZE-1:0] iss_mem_index2,
 
     output logic lsq_mem_write, lsq_mem_read,
     output logic [XLEN-1:0] lsq_memory_address, lsq_mem_write_data,
@@ -109,17 +100,40 @@ module DIS_Stage #(
     output logic [ROB_PTR_SIZE-1:0] lsq_rob_index 
 );
 
-    logic rob_full, iq_full, lsq_full;           
+    logic rob_full, iq_full, lsq_full, dis_fire;           
     logic [ROB_PTR_SIZE:0] current_rob_index;
+    logic [ROB_PTR_SIZE-1:0] rob_index1, rob_index2;
     logic load1_violation_flush, load2_violation_flush;
     logic commit_is_load1, commit_is_load2, commit_is_store1, commit_is_store2;
+    logic commit_is_branch1, commit_is_branch2;
+    logic rn_is_cf1, rn_is_cf2;
+    logic [LQ_ADDRESS-1:0] dis_lq_index1, dis_lq_index2;
+    logic [SQ_ADDRESS-1:0] dis_sq_index1, dis_sq_index2;
+    logic [MEM_INDEX_SIZE-1:0] rn_mem_index1, rn_mem_index2;
 
-    assign dis_stall_frontend = rob_full || iq_full || lsq_full;
+    //renamed bundle cannot be dispatched: rename registers hold it
+    assign dis_stall_frontend = (rn_valid1 || rn_valid2) && (rob_full || iq_full || lsq_full);
+    //renamed bundle enters ROB, IQ and LSQ in this cycle
+    assign dis_fire = (rn_valid1 || rn_valid2) && !dis_stall_frontend && !flush && !rob_global_flush;
 
-    ROB rob_instantiation (
+    //control unit also sets Branch for jal/jalr
+    assign rn_is_cf1 = rn_branch1 || rn_jump1;
+    assign rn_is_cf2 = rn_branch2 || rn_jump2;
+
+    assign dis_biq_dealloc = {1'b0, commit_is_branch1} + {1'b0, commit_is_branch2};
+
+    //a load carries its LQ entry and a store its SQ entry to the EX stage
+    assign rn_mem_index1 = (rn_memtoreg1) ? MEM_INDEX_SIZE'(dis_lq_index1) : MEM_INDEX_SIZE'(dis_sq_index1);
+    assign rn_mem_index2 = (rn_memtoreg2) ? MEM_INDEX_SIZE'(dis_lq_index2) : MEM_INDEX_SIZE'(dis_sq_index2);
+
+    ROB #(
+        .XLEN                   (XLEN),
+        .PRF_ADDRESS            (PRF_ADDRESS),
+        .ROB_SIZE               (ROB_SIZE)
+    ) rob_instantiation (
         .CLK                    (CLK),
         .reset                  (reset),
-        .stall_frontend         (stall_frontend),
+        .dis_fire               (dis_fire),
         .flush                  (flush), 
         .rn_valid1              (rn_valid1),
         .rn_valid2              (rn_valid2),
@@ -131,10 +145,12 @@ module DIS_Stage #(
         .rn_old_prd2            (rn_old_prd2),
         .rn_pc1                 (rn_pc),           
         .rn_pc2                 (rn_pc + 1),           
-        .rn_is_load1            (rn_is_load1),      
-        .rn_is_load2            (rn_is_load2),      
-        .rn_is_store1           (rn_is_store1),     
-        .rn_is_store2           (rn_is_store2),     
+        .rn_is_load1            (rn_memtoreg1),      
+        .rn_is_load2            (rn_memtoreg2),      
+        .rn_is_store1           (rn_memwrite1),     
+        .rn_is_store2           (rn_memwrite2),     
+        .rn_is_branch1          (rn_is_cf1),     
+        .rn_is_branch2          (rn_is_cf2),     
         .cdb_done1              (cdb_done1),
         .cdb_done2              (cdb_done2),
         .cdb_rob_index1         (cdb_rob_index1),
@@ -144,6 +160,8 @@ module DIS_Stage #(
         .load2_violation_flush  (load2_violation_flush), 
         .rob_full               (rob_full),
         .current_rob_index      (current_rob_index),
+        .rob_index1             (rob_index1),
+        .rob_index2             (rob_index2),
         .commit_instr1          (commit_instr1),
         .commit_instr2          (commit_instr2),
         .comm_prd1              (comm_prd1),
@@ -154,16 +172,27 @@ module DIS_Stage #(
         .commit_is_load2        (commit_is_load2),   
         .commit_is_store1       (commit_is_store1),  
         .commit_is_store2       (commit_is_store2),  
+        .commit_is_branch1      (commit_is_branch1),  
+        .commit_is_branch2      (commit_is_branch2),  
         .rob_global_flush       (rob_global_flush),  
         .rob_flush_pc           (rob_flush_pc),      
         .dis_free_old_prd1      (dis_free_old_prd1),
         .dis_free_old_prd2      (dis_free_old_prd2)
     );
     
-    IQ iq_instantiation (
+    IQ #(
+        .XLEN               (XLEN),
+        .PRF_ADDRESS        (PRF_ADDRESS),
+        .INIT_IMMEDIATE_SIZE(INIT_IMMEDIATE_SIZE),
+        .MAX_BRANCHES       (MAX_BRANCHES),
+        .BIQ_ADDRESS        (BIQ_ADDRESS),
+        .IQ_ROWS            (IQ_ROWS),
+        .ROB_SIZE           (ROB_SIZE),
+        .MEM_INDEX_SIZE     (MEM_INDEX_SIZE)
+    ) iq_instantiation (
         .CLK                (CLK),
         .reset              (reset),
-        .rob_full           (rob_full),
+        .dis_fire           (dis_fire),
         .flush              (flush),
         .stall_issue        (stall_issue),
         .rob_global_flush   (rob_global_flush),
@@ -172,7 +201,6 @@ module DIS_Stage #(
         .cdb_wakeup1        (cdb_wakeup1),
         .cdb_wakeup2        (cdb_wakeup2),
         .ex_branch_resolved (cdb_branch_resolved),
-        .ex_branch_correct  (!flush),
         .cdb_waked_reg1     (cdb_waked_reg1),
         .cdb_waked_reg2     (cdb_waked_reg2),
         .ex_branch_tag      (cdb_branch_tag),
@@ -199,9 +227,13 @@ module DIS_Stage #(
         .rn_memwrite1       (rn_memwrite1),
         .rn_memtoreg1       (rn_memtoreg1),
         .rn_branch_tag      (rn_branch_tag),
-        .rn_branch_mask     (rn_branch_mask),
+        .rn_branch_mask1    (rn_branch_mask1),
+        .rn_branch_mask2    (rn_branch_mask2),
         .rn_biq_address     (rn_biq_address),
-        .current_rob_index  (current_rob_index[ROB_PTR_SIZE-1:0]),
+        .rn_mem_index1      (rn_mem_index1),
+        .rn_mem_index2      (rn_mem_index2),
+        .rob_index1         (rob_index1),
+        .rob_index2         (rob_index2),
         .rn_valid2          (rn_valid2),
         .rn_prd2            (rn_prd2),
         .rn_prs1_2          (rn_prs1_2),
@@ -248,6 +280,7 @@ module DIS_Stage #(
         .iss_branch_mask1   (iss_branch_mask1),
         .iss_biq_address1   (iss_biq_address1),
         .iss_rob_index1     (iss_rob_index1),
+        .iss_mem_index1     (iss_mem_index1),
         .iss_valid2         (iss_valid2),
         .iss_is_m_extension2(iss_is_m_extension2),
         .iss_jump_reg2      (iss_jump_reg2),
@@ -271,13 +304,21 @@ module DIS_Stage #(
         .iss_branch_tag2    (iss_branch_tag2),
         .iss_branch_mask2   (iss_branch_mask2),
         .iss_biq_address2   (iss_biq_address2),
-        .iss_rob_index2     (iss_rob_index2)
+        .iss_rob_index2     (iss_rob_index2),
+        .iss_mem_index2     (iss_mem_index2)
     );
 
-    LSQ lsq_instantiation (
+    LSQ #(
+        .XLEN                       (XLEN),
+        .LQ_ENTRIES                 (LQ_ENTRIES),
+        .SQ_ENTRIES                 (SQ_ENTRIES),
+        .PRF_ADDRESS                (PRF_ADDRESS),
+        .ROB_SIZE                   (ROB_SIZE),
+        .MEM_INDEX_SIZE             (MEM_INDEX_SIZE)
+    ) lsq_instantiation (
         .CLK                        (CLK),
         .reset                      (reset),
-        .stall_frontend             (stall_frontend),
+        .dis_fire                   (dis_fire),
         .rob_global_flush           (rob_global_flush),
         .flush                      (flush),
         .rn_valid1                  (rn_valid1),
@@ -286,44 +327,29 @@ module DIS_Stage #(
         .rn_memtoreg2               (rn_memtoreg2),
         .rn_memwrite1               (rn_memwrite1),
         .rn_memwrite2               (rn_memwrite2),
-        .rn_is_branch1              (rn_branch1),
-        .rn_is_branch2              (rn_branch2),
-        .rn_rob_index1              (rn_rob_index1),
-        .rn_rob_index2              (rn_rob_index2),
+        .rn_is_branch1              (rn_is_cf1),
+        .rn_is_branch2              (rn_is_cf2),
+        .rn_rob_index1              (rob_index1),
+        .rn_rob_index2              (rob_index2),
         .rn_prd1                    (rn_prd1),
         .rn_prd2                    (rn_prd2),
-        .rn_prs2_1                  (rn_prs2_1),
-        .rn_prs2_2                  (rn_prs2_2),
-        .rn_prs2_busy1              (rn_prs2_busy1),
-        .rn_prs2_busy2              (rn_prs2_busy2),
         .rn_memory_type1            (rn_memory_type1),
         .rn_memory_type2            (rn_memory_type2),
         .rn_memory_sign_ext1        (rn_memory_sign_ext1),
         .rn_memory_sign_ext2        (rn_memory_sign_ext2),
-        .current_rob_index          (current_rob_index),
         .ex_branch_rob_index        (cdb_branch_rob_index),
         .ex_address_available1      (ex_mem_address1_available),
         .ex_is_load1                (ex_is_load1),
-        .ex_lq_index1               (ex_lq_index1),
+        .ex_is_store1               (ex_is_store1),
+        .ex_mem_index1              (ex_mem_index1),
         .ex_memory_address1         (ex_mem_address1),
+        .ex_store_data1             (ex_store_data1),
         .ex_address_available2      (ex_mem_address2_available),
         .ex_is_load2                (ex_is_load2),
-        .ex_lq_index2               (ex_lq_index2),
-        .ex_memory_address2         (ex_mem_address2),
-        .ex_mem_address1_available  (ex_mem_address1_available),
-        .ex_is_store1               (ex_is_store1),
-        .ex_mem_address1            (ex_mem_address1),
-        .ex_sq_index1               (ex_sq_index1),
-        .ex_mem_address2_available  (ex_mem_address2_available),
         .ex_is_store2               (ex_is_store2),
-        .ex_mem_address2            (ex_mem_address2),
-        .ex_sq_index2               (ex_sq_index2),
-        .cdb_result1_available      (cdb_result1_available),
-        .cdb_result2_available      (cdb_result2_available),
-        .cdb_tag1_broadcast         (cdb_waked_reg1),
-        .cdb_tag2_broadcast         (cdb_waked_reg2),
-        .cdb_result1_broadcast      (cdb_result1_broadcast),
-        .cdb_result2_broadcast      (cdb_result2_broadcast),
+        .ex_mem_index2              (ex_mem_index2),
+        .ex_memory_address2         (ex_mem_address2),
+        .ex_store_data2             (ex_store_data2),
         .commit_is_load1            (commit_is_load1),
         .commit_is_load2            (commit_is_load2),
         .commit_is_store1           (commit_is_store1),
@@ -336,6 +362,10 @@ module DIS_Stage #(
         .lsq_rob_index              (lsq_rob_index),     
 
         .lsq_full                   (lsq_full),
+        .dis_lq_index1              (dis_lq_index1),
+        .dis_lq_index2              (dis_lq_index2),
+        .dis_sq_index1              (dis_sq_index1),
+        .dis_sq_index2              (dis_sq_index2),
         .load1_violation_flush      (load1_violation_flush), 
         .load2_violation_flush      (load2_violation_flush),
         .lsq_mem_write              (lsq_mem_write),
