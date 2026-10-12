@@ -4,12 +4,14 @@ module EX_Stage #(
     parameter ROB_PTR_SIZE = 6,
     parameter MAX_BRANCHES = 4,
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES),
-    parameter BIQ_ADDRESS = 5
+    parameter BIQ_ADDRESS = 5,
+    parameter MEM_INDEX_SIZE = 5
 ) (
     input logic CLK, reset, rob_global_flush,
     input logic mul_ack, div_ack,
-    input logic biq_pred_taken1, biq_pred_taken2,
-    input logic [XLEN-1:0] biq_pred_target1, biq_pred_target2,
+    //prediction of the branch in this stage (only one branch is issued per cycle)
+    input logic biq_pred_taken, biq_slot, biq_is_ret,
+    input logic [XLEN-1:0] biq_pred_target,
     input logic [XLEN-1:0] rr_instr1_read_data1, rr_instr1_read_data2,
     input logic [XLEN-1:0] rr_instr2_read_data1, rr_instr2_read_data2,
     input logic [PRF_ADDRESS-1:0] rr_instr1_prs1, rr_instr1_prs2,
@@ -27,6 +29,7 @@ module EX_Stage #(
     input logic [MAX_BRANCHES-1:0] rr_branch_mask1,
     input logic [BIQ_ADDRESS-1:0] rr_biq_address1,
     input logic [ROB_PTR_SIZE-1:0] rr_rob_index1,
+    input logic [MEM_INDEX_SIZE-1:0] rr_mem_index1,
     
     // Instruction 2 Control
     input logic rr_valid2, rr_is_m_extension2, rr_jump_reg2, rr_jump2, rr_branch2,
@@ -40,13 +43,16 @@ module EX_Stage #(
     input logic [MAX_BRANCHES-1:0] rr_branch_mask2,
     input logic [BIQ_ADDRESS-1:0] rr_biq_address2,
     input logic [ROB_PTR_SIZE-1:0] rr_rob_index2,
+    input logic [MEM_INDEX_SIZE-1:0] rr_mem_index2,
 
     // Branch Resolution Outputs
     output logic flush,
     output logic [BTAG_SIZE-1:0] cdb_branch_tag,
     output logic cdb_branch_resolved, cdb_branch_correct,
-    output logic ex_actual_taken, update_pht, ex_is_jalr, ex_is_ret, ex_is_branch,
-    output logic [XLEN-1:0] ex_actual_target_address, ex_pc,
+    output logic ex_actual_taken, update_pht, ex_is_branch, ex_btb_update, ex_btb_slot,
+    output logic [XLEN-1:0] ex_actual_target_address, ex_redirect_pc, ex_fetch_pc,
+    output logic [ROB_PTR_SIZE-1:0] cdb_branch_rob_index,
+    output logic [BIQ_ADDRESS-1:0] ex_biq_id,
 
     // ARBITER REQUEST PORTS
     output logic ex_alu1_valid, ex_alu1_regwrite,
@@ -67,8 +73,13 @@ module EX_Stage #(
     output logic [PRF_ADDRESS-1:0] ex_div_prd,
     output logic [ROB_PTR_SIZE-1:0] ex_div_rob_index,
     output logic cdb_div_busy,
+    // LSQ (address of loads, address and data of stores)
     output logic ex_mem_address1_available, ex_is_load1, ex_is_store1,
-    output logic [XLEN-1:0] ex_mem_address1
+    output logic [XLEN-1:0] ex_mem_address1, ex_store_data1,
+    output logic [MEM_INDEX_SIZE-1:0] ex_mem_index1,
+    output logic ex_mem_address2_available, ex_is_load2, ex_is_store2,
+    output logic [XLEN-1:0] ex_mem_address2, ex_store_data2,
+    output logic [MEM_INDEX_SIZE-1:0] ex_mem_index2
 );
 
     logic is_mul1, is_div1, is_alu1;
@@ -82,6 +93,8 @@ module EX_Stage #(
     logic prev_alu2_valid, prev_alu2_regwrite;
     logic [PRF_ADDRESS-1:0] prev_alu2_prd;
     logic [XLEN-1:0] prev_alu2_result;
+    logic valid1, valid2; //instruction is not squashed by the branch resolved in this very cycle
+    logic [MAX_BRANCHES-1:0] resolved_tag_bit;
 
     always_comb begin
         is_mul1 = (rr_is_m_extension1 && rr_alu_operation1[4:2] == 3'b100);
@@ -104,12 +117,12 @@ module EX_Stage #(
             prev_alu1_result <= '0;
             prev_alu2_result <= '0;
         end else begin
-            prev_alu1_valid    <= rr_valid1 && is_alu1 && rr_regwrite1 && !flush; 
+            prev_alu1_valid    <= valid1 && is_alu1 && rr_regwrite1 && !rr_memtoreg1; 
             prev_alu1_regwrite <= rr_regwrite1;
             prev_alu1_prd      <= rr_prd1;
             prev_alu1_result   <= internal_alu_result1;
 
-            prev_alu2_valid    <= rr_valid2 && is_alu2 && rr_regwrite2 && !flush; 
+            prev_alu2_valid    <= valid2 && is_alu2 && rr_regwrite2 && !rr_memtoreg2; 
             prev_alu2_regwrite <= rr_regwrite2;
             prev_alu2_prd      <= rr_prd2;
             prev_alu2_result   <= internal_alu_result2;
@@ -117,7 +130,9 @@ module EX_Stage #(
     end
 
     logic [1:0] fw_a1, fw_b1, fw_a2, fw_b2;
-    ForwardingUnit fu_instantiation (
+    ForwardingUnit #(
+        .PRF_ADDRESS        (PRF_ADDRESS)
+    ) fu_instantiation (
         .prev_alu1_valid    (prev_alu1_valid), 
         .prev_alu1_regwrite (prev_alu1_regwrite), 
         .prev_alu1_prd      (prev_alu1_prd),
@@ -128,7 +143,7 @@ module EX_Stage #(
         .rr_instr1_prs2     (rr_instr1_prs2),
         .rr_instr2_prs1     (rr_instr2_prs1), 
         .rr_instr2_prs2     (rr_instr2_prs2),
-        .rr_valid1          (rr_valid1 && is_alu1), 
+        .rr_valid1          (rr_valid1 && is_alu1 && !rr_memtoreg1), 
         .rr_regwrite1       (rr_regwrite1), 
         .rr_prd1            (rr_prd1),
         .forward_ALU1_A     (fw_a1),
@@ -170,7 +185,9 @@ module EX_Stage #(
         instr2_rs2_data = (rr_retaddr2)  ? XLEN'(4)     : ((rr_instr2_regsrc2) ? fw_read_data2_2 : rr_immediate2);
     end
 
-    ALU alu1_instantiation (
+    ALU #(
+        .XLEN               (XLEN)
+    ) alu1_instantiation (
         .valid              (rr_valid1), 
         .dataA              (instr1_rs1_data), 
         .dataB              (instr1_rs2_data),
@@ -178,7 +195,9 @@ module EX_Stage #(
         .alu_result         (internal_alu_result1)        
     );
 
-    ALU alu2_instantiation (
+    ALU #(
+        .XLEN               (XLEN)
+    ) alu2_instantiation (
         .valid              (rr_valid2), 
         .dataA              (instr2_rs1_data), 
         .dataB              (instr2_rs2_data),
@@ -188,64 +207,99 @@ module EX_Stage #(
 
     logic branch1_active, branch2_active, branch1_actual_taken, branch2_actual_taken;
     logic [XLEN-1:0] branch1_actual_target, branch2_actual_target;
+    logic [XLEN-1:0] branch1_next_pc, branch2_next_pc;
     logic branch1_mispredicted, branch2_mispredicted;
+    logic is_cond_branch1, is_cond_branch2;
+    logic flush1, flush2;
 
     always_comb begin
         branch1_active = rr_valid1 && !rob_global_flush && (rr_branch1 || rr_jump1 || rr_jump_reg1);
         branch2_active = rr_valid2 && !rob_global_flush && (rr_branch2 || rr_jump2 || rr_jump_reg2);
 
+        //control unit also sets Branch for jal/jalr
+        is_cond_branch1 = rr_branch1 && !rr_jump1;
+        is_cond_branch2 = rr_branch2 && !rr_jump2;
+
         branch1_actual_taken = rr_jump1 || rr_jump_reg1 || (rr_branch1 && internal_alu_result1[0]);
         branch2_actual_taken = rr_jump2 || rr_jump_reg2 || (rr_branch2 && internal_alu_result2[0]);
          
-        branch1_actual_target = ((rr_jump_reg1) ? instr1_rs1_data : {rr_pc1, 2'b00}) + rr_immediate1;        
-        branch2_actual_target = ((rr_jump_reg2) ? instr2_rs1_data : {rr_pc2, 2'b00}) + rr_immediate2;
+        //jalr: (rs1 + imm) with lsb cleared, branch/jal: pc + imm
+        branch1_actual_target = (rr_jump_reg1) ? ((fw_read_data1_1 + rr_immediate1) & ~XLEN'(1)) : ({rr_pc1, 2'b00} + rr_immediate1);        
+        branch2_actual_target = (rr_jump_reg2) ? ((fw_read_data2_1 + rr_immediate2) & ~XLEN'(1)) : ({rr_pc2, 2'b00} + rr_immediate2);
+
+        //address of the instruction which really follows the branch
+        branch1_next_pc = (branch1_actual_taken) ? branch1_actual_target : ({rr_pc1, 2'b00} + XLEN'(4));
+        branch2_next_pc = (branch2_actual_taken) ? branch2_actual_target : ({rr_pc2, 2'b00} + XLEN'(4));
          
-        branch1_mispredicted = (branch1_actual_taken != biq_pred_taken1) || (branch1_actual_taken && (branch1_actual_target != biq_pred_target1));
-        branch2_mispredicted = (branch2_actual_taken != biq_pred_taken2) || (branch2_actual_taken && (branch2_actual_target != biq_pred_target2));
+        branch1_mispredicted = (branch1_actual_taken != biq_pred_taken) || (branch1_actual_taken && (branch1_actual_target != biq_pred_target));
+        branch2_mispredicted = (branch2_actual_taken != biq_pred_taken) || (branch2_actual_taken && (branch2_actual_target != biq_pred_target));
+
+        flush1 = branch1_active && branch1_mispredicted;
+        flush2 = !branch1_active && branch2_active && branch2_mispredicted;
+
+        //the other instruction in this stage may be younger than the mispredicted branch
+        valid1 = rr_valid1 && !rob_global_flush && !(flush2 && rr_branch_mask1[rr_branch_tag2]);
+        valid2 = rr_valid2 && !rob_global_flush && !(flush1 && rr_branch_mask2[rr_branch_tag1]);
 
         // VERILATOR FIX: Set explicit widths on all defaults to avoid latch/trunc warnings
         cdb_branch_resolved = 1'b0; 
         cdb_branch_correct = 1'b0; 
         cdb_branch_tag = {BTAG_SIZE{1'b0}}; 
+        cdb_branch_rob_index = {ROB_PTR_SIZE{1'b0}};
+        ex_biq_id = {BIQ_ADDRESS{1'b0}};
         flush = 1'b0;
         ex_actual_taken = 1'b0; 
         update_pht = 1'b0; 
-        ex_is_jalr = 1'b0; 
-        ex_is_ret = 1'b0; 
         ex_is_branch = 1'b0;
+        ex_btb_update = 1'b0;
         ex_actual_target_address = {XLEN{1'b0}}; 
-        ex_pc = {XLEN{1'b0}};
+        ex_redirect_pc = {XLEN{1'b0}}; 
+        ex_fetch_pc = {XLEN{1'b0}};
 
         if (branch1_active) begin
             cdb_branch_resolved = 1'b1; 
             cdb_branch_correct = !branch1_mispredicted; 
             cdb_branch_tag = rr_branch_tag1; 
+            cdb_branch_rob_index = rr_rob_index1;
+            ex_biq_id = rr_biq_address1;
             flush = branch1_mispredicted;  
             ex_actual_taken = branch1_actual_taken; 
-            update_pht = rr_branch1; 
-            ex_is_jalr = rr_jump_reg1; 
-            ex_is_ret = rr_jump_reg1 && !rr_retaddr1; 
-            ex_is_branch = rr_branch1;
+            update_pht = is_cond_branch1; 
+            ex_is_branch = is_cond_branch1;
+            //returns are predicted by the RAS, everything else which is taken goes to the BTB
+            ex_btb_update = branch1_actual_taken && !biq_is_ret;
             ex_actual_target_address = branch1_actual_target; 
-            ex_pc = {rr_pc1, 2'b00};
+            ex_redirect_pc = branch1_next_pc;
+            //BTB is indexed with the pc of the bundle the branch was fetched in
+            ex_fetch_pc = {rr_pc1, 2'b00} - ((biq_slot) ? XLEN'(4) : XLEN'(0));
         end
         else if (branch2_active) begin
             cdb_branch_resolved = 1'b1; 
             cdb_branch_correct = !branch2_mispredicted;
             cdb_branch_tag = rr_branch_tag2; 
+            cdb_branch_rob_index = rr_rob_index2;
+            ex_biq_id = rr_biq_address2;
             flush = branch2_mispredicted;
             ex_actual_taken = branch2_actual_taken; 
-            update_pht = rr_branch2; 
-            ex_is_jalr = rr_jump_reg2; 
-            ex_is_ret = rr_jump_reg2 && !rr_retaddr2; 
-            ex_is_branch = rr_branch2;
+            update_pht = is_cond_branch2; 
+            ex_is_branch = is_cond_branch2;
+            ex_btb_update = branch2_actual_taken && !biq_is_ret;
             ex_actual_target_address = branch2_actual_target; 
-            ex_pc = {rr_pc2, 2'b00};
+            ex_redirect_pc = branch2_next_pc;
+            ex_fetch_pc = {rr_pc2, 2'b00} - ((biq_slot) ? XLEN'(4) : XLEN'(0));
         end
+
+        ex_btb_slot = biq_slot;
+        resolved_tag_bit = (cdb_branch_resolved) ? (MAX_BRANCHES'(1) << cdb_branch_tag) : '0;
     end
 
     // MUL & DIV
-    MUL_Unit mul_inst (
+    MUL_Unit #(
+        .XLEN                   (XLEN),
+        .PRF_ADDRESS            (PRF_ADDRESS),
+        .ROB_PTR_SIZE           (ROB_PTR_SIZE),
+        .MAX_BRANCHES           (MAX_BRANCHES)
+    ) mul_inst (
         .CLK                    (CLK), 
         .reset                  (reset), 
         .flush                  (flush), 
@@ -254,8 +308,8 @@ module EX_Stage #(
         .cdb_branch_resolved    (cdb_branch_resolved), 
         .cdb_branch_correct     (cdb_branch_correct),
         .mul_ack                (mul_ack), 
-        .valid                  ((rr_valid1 && is_mul1) || (rr_valid2 && is_mul2)),
-        .rr_branch_mask         ((rr_valid1 && is_mul1) ? rr_branch_mask1 : rr_branch_mask2),
+        .valid                  ((valid1 && is_mul1) || (valid2 && is_mul2)),
+        .rr_branch_mask         (((rr_valid1 && is_mul1) ? rr_branch_mask1 : rr_branch_mask2) & ~resolved_tag_bit),
         .rs1_data               ((rr_valid1 && is_mul1) ? instr1_rs1_data : instr2_rs1_data),
         .rs2_data               ((rr_valid1 && is_mul1) ? instr1_rs2_data : instr2_rs2_data),
         .alu_operation          ((rr_valid1 && is_mul1) ? rr_alu_operation1 : rr_alu_operation2),
@@ -268,7 +322,12 @@ module EX_Stage #(
         .cdb_rob_index          (ex_mul_rob_index)
     );
 
-    DIV_Unit div_inst (
+    DIV_Unit #(
+        .XLEN                   (XLEN),
+        .PRF_ADDRESS            (PRF_ADDRESS),
+        .ROB_PTR_SIZE           (ROB_PTR_SIZE),
+        .MAX_BRANCHES           (MAX_BRANCHES)
+    ) div_inst (
         .CLK                    (CLK), 
         .reset                  (reset), 
         .flush                  (flush), 
@@ -277,8 +336,8 @@ module EX_Stage #(
         .cdb_branch_resolved    (cdb_branch_resolved), 
         .cdb_branch_correct     (cdb_branch_correct),
         .div_ack                (div_ack), 
-        .valid                  ((rr_valid1 && is_div1) || (rr_valid2 && is_div2)), 
-        .rr_branch_mask         ((rr_valid1 && is_div1) ? rr_branch_mask1 : rr_branch_mask2),
+        .valid                  ((valid1 && is_div1) || (valid2 && is_div2)), 
+        .rr_branch_mask         (((rr_valid1 && is_div1) ? rr_branch_mask1 : rr_branch_mask2) & ~resolved_tag_bit),
         .rs1_data               ((rr_valid1 && is_div1) ? instr1_rs1_data : instr2_rs1_data),
         .rs2_data               ((rr_valid1 && is_div1) ? instr1_rs2_data : instr2_rs2_data),
         .alu_operation          ((rr_valid1 && is_div1) ? rr_alu_operation1 : rr_alu_operation2),
@@ -292,21 +351,32 @@ module EX_Stage #(
     );
 
     always_comb begin
-        ex_alu1_valid = rr_valid1 && !rob_global_flush && is_alu1 && rr_regwrite1;
+        // every instruction executed by the ALUs reports its completion on the CDB (branches, jumps and
+        // stores too, their prd is p0). Loads only compute their address here, the LSQ completes them.
+        ex_alu1_valid = valid1 && is_alu1 && !rr_memtoreg1;
         ex_alu1_regwrite = rr_regwrite1;
         ex_alu1_result = internal_alu_result1;
         ex_alu1_prd = rr_prd1;
         ex_alu1_rob_index = rr_rob_index1;
 
-        ex_alu2_valid = rr_valid2 && !rob_global_flush && is_alu2 && rr_regwrite2;
+        ex_alu2_valid = valid2 && is_alu2 && !rr_memtoreg2;
         ex_alu2_regwrite = rr_regwrite2;
         ex_alu2_result = internal_alu_result2;
         ex_alu2_prd = rr_prd2;
         ex_alu2_rob_index = rr_rob_index2;
         
-        ex_mem_address1_available = rr_valid1 && !rob_global_flush && (rr_memtoreg1 || rr_memwrite1);
+        ex_mem_address1_available = valid1 && (rr_memtoreg1 || rr_memwrite1);
         ex_is_load1 = rr_memtoreg1;
         ex_is_store1 = rr_memwrite1;
         ex_mem_address1 = internal_alu_result1;
+        ex_store_data1 = fw_read_data1_2;
+        ex_mem_index1 = rr_mem_index1;
+
+        ex_mem_address2_available = valid2 && (rr_memtoreg2 || rr_memwrite2);
+        ex_is_load2 = rr_memtoreg2;
+        ex_is_store2 = rr_memwrite2;
+        ex_mem_address2 = internal_alu_result2;
+        ex_store_data2 = fw_read_data2_2;
+        ex_mem_index2 = rr_mem_index2;
     end
 endmodule
