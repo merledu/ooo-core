@@ -10,7 +10,7 @@ module RN_Stage #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
-    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, stall_frontend, rob_global_flush,
+    input logic CLK, reset, flush, id_take_snap, id_valid1, id_valid2, dis_stall_frontend, rob_global_flush,
     input logic [31:0][PRF_ADDRESS-1:0] amt_state,
     input logic cdb_wakeup1, cdb_wakeup2, comm_free_push1, comm_free_push2, cdb_branch_resolved,
     input logic id_is_m_extension1, id_is_m_extension2,
@@ -34,7 +34,7 @@ module RN_Stage #(
     output logic [PRF_ADDRESS-1:0] rn_prd2, rn_prs1_2, rn_prs2_2, rn_old_prd2,             
     output logic rn_prs1_busy1, rn_prs2_busy1, rn_prs1_busy2, rn_prs2_busy2,
     output logic [BTAG_SIZE-1:0] rn_branch_tag,
-    output logic [MAX_BRANCHES-1:0] rn_branch_mask,
+    output logic [MAX_BRANCHES-1:0] rn_branch_mask1, rn_branch_mask2,
     output logic [BIQ_ADDRESS-1:0] rn_biq_address,
     output logic [XLEN-3:0] rn_pc,
     output logic [4:0] rn_rd_1, rn_rd_2,
@@ -59,66 +59,100 @@ module RN_Stage #(
     logic [FL_PTR_WIDTH-1:0] fl_head_ptr, bs_head_ptr_snap;
     logic [PRF_ADDRESS-1:0] routed_freed_reg1, routed_freed_reg2;
 
-    logic pop1, pop2, bs_full, fl_empty;
+    logic pop1, pop2, bs_full, fl_empty, rename_en, rn_advance, cf_in_slot1;
+    logic [BTAG_SIZE-1:0] bs_branch_tag;
+    logic [MAX_BRANCHES-1:0] bs_branch_mask, resolved_tag_bit;
 
     assign pop1 = id_valid1 && id_regwrite1 && (id_rd_1 != 5'b0);
     assign pop2 = id_valid2 && id_regwrite2 && (id_rd_2 != 5'b0);
    
     assign routed_freed_reg1 = fl_freed_reg1;
     assign routed_freed_reg2 = (pop1) ? fl_freed_reg2 : fl_freed_reg1;
-    assign rn_stall_frontend = bs_full || fl_empty;
+
+    //bundle in ID stage cannot be renamed: no branch tag for its branch or not enough free registers
+    assign rn_stall_frontend = ((id_valid1 || id_valid2) && id_take_snap && bs_full) || fl_empty;
+    //rename registers are loaded with the next bundle (or a bubble)
+    assign rn_advance = !dis_stall_frontend;
+    //bundle in ID stage is renamed in this cycle
+    assign rename_en  = !dis_stall_frontend && !rn_stall_frontend && !flush && !rob_global_flush;
+
+    assign cf_in_slot1      = id_valid1 && (id_branch1 || id_jump1);
+    assign resolved_tag_bit = (cdb_branch_resolved) ? (MAX_BRANCHES'(1) << cdb_branch_tag) : '0;
 
     always_ff @(posedge CLK) begin 
-        rn_biq_address      <= id_biq_address;
-        rn_pc               <= id_pc;
-        // Instruction 1 Control Signals
-        rn_is_m_extension1  <= id_is_m_extension1;
-        rn_rd_1             <= id_rd_1;
-        rn_valid1           <= id_valid1 && (!flush && !rob_global_flush) && !stall_frontend;
-        rn_immout1          <= id_immout1;
-        rn_alu_operation1   <= id_alu_operation1;
-        rn_jump_reg1        <= id_jump_reg1;
-        rn_jump1            <= id_jump1;
-        rn_branch1          <= id_branch1;
-        rn_regsrc1_1        <= id_regsrc1_1;
-        rn_regsrc2_1        <= id_regsrc2_1;
-        rn_immtype1         <= id_immtype1;
-        rn_isimm1           <= id_isimm1;
-        rn_upperimm1        <= id_upperimm1;
-        rn_regwrite1        <= id_regwrite1;
-        rn_memwrite1        <= id_memwrite1;
-        rn_memtoreg1        <= id_memtoreg1;
-        rn_retaddr1         <= id_retaddr1;
-        rn_memory_type1     <= id_memory_type1;
-        rn_memory_sign_ext1 <= id_memory_sign_ext1;
+        if (reset || flush || rob_global_flush) begin
+            rn_valid1 <= 0;
+            rn_valid2 <= 0;
+        end
+        else if (rn_advance) begin
+            rn_valid1 <= id_valid1 && !rn_stall_frontend;
+            rn_valid2 <= id_valid2 && !rn_stall_frontend;
+        end
 
-        // Instruction 2 Control Signals
-        rn_is_m_extension2  <= id_is_m_extension2;
-        rn_rd_2             <= id_rd_2;
-        rn_valid2           <= id_valid2 && (!flush && !rob_global_flush) && !stall_frontend;
-        rn_immout2          <= id_immout2;
-        rn_alu_operation2   <= id_alu_operation2;
-        rn_jump_reg2        <= id_jump_reg2;
-        rn_jump2            <= id_jump2;
-        rn_branch2          <= id_branch2;
-        rn_regsrc1_2        <= id_regsrc1_2;
-        rn_regsrc2_2        <= id_regsrc2_2;
-        rn_immtype2         <= id_immtype2;
-        rn_isimm2           <= id_isimm2;
-        rn_upperimm2        <= id_upperimm2;
-        rn_regwrite2        <= id_regwrite2;
-        rn_memwrite2        <= id_memwrite2;
-        rn_memtoreg2        <= id_memtoreg2;
-        rn_retaddr2         <= id_retaddr2;
-        rn_memory_type2     <= id_memory_type2;
-        rn_memory_sign_ext2 <= id_memory_sign_ext2;
+        if (rn_advance) begin
+            rn_biq_address      <= id_biq_address;
+            rn_pc               <= id_pc;
+            //tag given to the branch of this bundle (if any)
+            rn_branch_tag       <= bs_branch_tag;
+            //unresolved older branches. 2nd instruction also depends on the 1st one if that is a branch
+            rn_branch_mask1     <= bs_branch_mask;
+            rn_branch_mask2     <= (cf_in_slot1) ? (bs_branch_mask | (MAX_BRANCHES'(1) << bs_branch_tag)) : bs_branch_mask;
+
+            // Instruction 1 Control Signals
+            rn_is_m_extension1  <= id_is_m_extension1;
+            rn_rd_1             <= id_rd_1;
+            rn_immout1          <= id_immout1;
+            rn_alu_operation1   <= id_alu_operation1;
+            rn_jump_reg1        <= id_jump_reg1;
+            rn_jump1            <= id_jump1;
+            rn_branch1          <= id_branch1;
+            rn_regsrc1_1        <= id_regsrc1_1;
+            rn_regsrc2_1        <= id_regsrc2_1;
+            rn_immtype1         <= id_immtype1;
+            rn_isimm1           <= id_isimm1;
+            rn_upperimm1        <= id_upperimm1;
+            rn_regwrite1        <= id_regwrite1;
+            rn_memwrite1        <= id_memwrite1;
+            rn_memtoreg1        <= id_memtoreg1;
+            rn_retaddr1         <= id_retaddr1;
+            rn_memory_type1     <= id_memory_type1;
+            rn_memory_sign_ext1 <= id_memory_sign_ext1;
+
+            // Instruction 2 Control Signals
+            rn_is_m_extension2  <= id_is_m_extension2;
+            rn_rd_2             <= id_rd_2;
+            rn_immout2          <= id_immout2;
+            rn_alu_operation2   <= id_alu_operation2;
+            rn_jump_reg2        <= id_jump_reg2;
+            rn_jump2            <= id_jump2;
+            rn_branch2          <= id_branch2;
+            rn_regsrc1_2        <= id_regsrc1_2;
+            rn_regsrc2_2        <= id_regsrc2_2;
+            rn_immtype2         <= id_immtype2;
+            rn_isimm2           <= id_isimm2;
+            rn_upperimm2        <= id_upperimm2;
+            rn_regwrite2        <= id_regwrite2;
+            rn_memwrite2        <= id_memwrite2;
+            rn_memtoreg2        <= id_memtoreg2;
+            rn_retaddr2         <= id_retaddr2;
+            rn_memory_type2     <= id_memory_type2;
+            rn_memory_sign_ext2 <= id_memory_sign_ext2;
+        end
+        else begin
+            //bundle is waiting for dispatch: branches resolved meanwhile are no longer dependencies
+            rn_branch_mask1     <= rn_branch_mask1 & ~resolved_tag_bit;
+            rn_branch_mask2     <= rn_branch_mask2 & ~resolved_tag_bit;
+        end
     end
     
-    RMT rmt_instantiation (
+    RMT #(
+        .PRF_ADDRESS        (PRF_ADDRESS)
+    ) rmt_instantiation (
         .CLK                (CLK),
         .reset              (reset),
         .restore_rmt        (flush),
-        .stall_frontend     (stall_frontend),
+        .rename_en          (rename_en),
+        .rn_advance         (rn_advance),
         .rob_global_flush   (rob_global_flush),
         .amt_state          (amt_state),
         .reg_write1         (id_regwrite1 && id_valid1), 
@@ -162,11 +196,13 @@ module RN_Stage #(
         .rmt_snap           (rmt_snap)
     );
 
-    FL fl_instantiation (
+    FL #(
+        .PRF_ADDRESS        (PRF_ADDRESS)
+    ) fl_instantiation (
         .CLK                (CLK),
         .reset              (reset),
         .flush              (flush),
-        .stall_frontend     (stall_frontend),
+        .rename_en          (rename_en),
         .rob_global_flush   (rob_global_flush),
         .amt_state          (amt_state),
         .pop1               (pop1),
@@ -188,10 +224,13 @@ module RN_Stage #(
 
     );
 
-    BS bs_instantiation (
+    BS #(
+        .PRF_ADDRESS            (PRF_ADDRESS),
+        .MAX_BRANCHES           (MAX_BRANCHES)
+    ) bs_instantiation (
         .CLK                    (CLK),
         .reset                  (reset),
-        .id_take_snap           (id_take_snap && !stall_frontend && !flush),  //if branch instructions then take snapshot
+        .id_take_snap           (id_take_snap && (id_valid1 || id_valid2) && rename_en),  //if branch instructions then take snapshot
         .flush                  (flush),
         .rob_global_flush       (rob_global_flush),
         .rmt_snap               (rmt_snap),           
@@ -203,12 +242,12 @@ module RN_Stage #(
         .cdb_branch_resolved    (cdb_branch_resolved), 
         .cdb_branch_tag         (cdb_branch_tag),
         //to store the updated mapping of map table
-        .pop1                   (pop1 && !stall_frontend),
-        .pop2                   (pop2 && !stall_frontend),
+        .pop1                   (pop1 && rename_en),
+        .pop2                   (pop2 && rename_en),
 
         //output     
-        .bs_branch_tag          (rn_branch_tag),      
-        .bs_branch_mask         (rn_branch_mask),     
+        .bs_branch_tag          (bs_branch_tag),      
+        .bs_branch_mask         (bs_branch_mask),     
         
         // Restoring the rat and busytable and free list
         .bs_rmt_snap            (bs_rmt_snap),        
