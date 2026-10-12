@@ -23,7 +23,11 @@ module MEM_Stage #(
     logic [31:0] ram_write_data;
     logic [31:0] ram_read_data;
 
-    DataMemoryWrapper dmw_instantiation (
+    DataMemoryWrapper #(
+        .XLEN               (XLEN),
+        .LQ_ADDRESS         (LQ_ADDRESS),
+        .RAM_DEPTH          (RAM_DEPTH)
+    ) dmw_instantiation (
         .CLK                (CLK),
         .reset              (reset),
         .rob_global_flush   (rob_global_flush),
@@ -45,7 +49,9 @@ module MEM_Stage #(
         .ram_read_data      (ram_read_data)
     );
 
-    DataMemory dm_instantiation (
+    DataMemory #(
+        .RAM_DEPTH          (RAM_DEPTH)
+    ) dm_instantiation (
         .CLK                (CLK),
         .write_mask         (ram_write_mask),
         .word_addr          (ram_word_addr),
