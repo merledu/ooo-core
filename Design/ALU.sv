@@ -21,6 +21,13 @@ module ALU #(
                 4'b1010: alu_result = $unsigned(dataA) >> dataB[4:0];
                 4'b1011: alu_result = $signed(dataA) >>> dataB[4:0];
                 4'b1101: alu_result = {31'b0, (dataA < dataB)};
+                // branch comparisons
+                4'b0100: alu_result = {31'b0, (dataA == dataB)};
+                4'b0110: alu_result = {31'b0, (dataA != dataB)};
+                4'b0111: alu_result = {31'b0, ($signed(dataA) < $signed(dataB))};
+                4'b1100: alu_result = {31'b0, ($signed(dataA) >= $signed(dataB))};
+                4'b1110: alu_result = {31'b0, (dataA < dataB)};
+                4'b1111: alu_result = {31'b0, (dataA >= dataB)};
                 default: alu_result = 32'b0;
             endcase
         end
