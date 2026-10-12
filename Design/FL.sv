@@ -5,7 +5,7 @@ module FL #(
     parameter FL_INDEX_WIDTH = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH = FL_INDEX_WIDTH + 1
 ) (
-    input logic CLK, reset, flush, stall_frontend, rob_global_flush, push1, push2, pop1, pop2,
+    input logic CLK, reset, flush, rename_en, rob_global_flush, push1, push2, pop1, pop2,
     input logic id_branch1, id_jump1, id_valid1,
     input logic [PRF_ADDRESS-1:0] comm_free_reg1, comm_free_reg2,
     input logic [FL_PTR_WIDTH-1:0] bs_head_ptr_snap,
@@ -27,8 +27,8 @@ module FL #(
     assign fl_freed_reg2 = FL[FL_INDEX_WIDTH'(head[FL_INDEX_WIDTH-1:0] + FL_INDEX_WIDTH'(1))];
 
     
-    assign valid_pop1 = pop1 && !stall_frontend && !flush;
-    assign valid_pop2 = pop2 && !stall_frontend && !flush;
+    assign valid_pop1 = pop1 && rename_en;
+    assign valid_pop2 = pop2 && rename_en;
 
     always_comb begin
         //during flush, we fetch instruction from correct path, so we dont pop register in this cycle
