@@ -7,17 +7,21 @@ set stage  [expr {[llength $argv] > 0 ? [lindex $argv 0] : "all"}]
 set period [expr {[llength $argv] > 1 ? [lindex $argv 1] : 20.0}]
 set part   xc7a100tcsg324-1
 set here   [file dirname [file normalize [info script]]]
-set design [file normalize $here/../Design]
+set repo   [file normalize $here/..]
 set out    $here/build
 file mkdir $out
 
+# every file listed in rtl/rtl.f (paths relative to the repository root)
 set srcs {}
-foreach f [lsort [glob $design/*.sv]] {
-    if {![string match "tb_*" [file tail $f]]} { lappend srcs $f }
+set fh [open $repo/rtl/rtl.f]
+foreach line [split [read $fh] "\n"] {
+    set line [string trim $line]
+    if {$line ne "" && ![string match "//*" $line]} { lappend srcs $repo/$line }
 }
+close $fh
 read_verilog -sv $srcs
 # program in the instruction memory
-set hex [file normalize $design/instructions.hex]
+set hex [file normalize $repo/sim/smoke/instructions.hex]
 
 synth_design -top main_datapath -part $part -mode out_of_context -flatten_hierarchy rebuilt \
     -verilog_define SYNTHESIS -generic "HEX_FILE=\"$hex\""

@@ -2,13 +2,17 @@
 set top    [lindex $argv 0]
 set period [expr {[llength $argv] > 1 ? [lindex $argv 1] : 20.0}]
 set here   [file dirname [file normalize [info script]]]
-set design [file normalize $here/../Design]
+set repo   [file normalize $here/..]
 set out    $here/build/modules
 file mkdir $out
+# every file listed in rtl/rtl.f (paths relative to the repository root)
 set srcs {}
-foreach f [lsort [glob $design/*.sv]] {
-    if {![string match "tb_*" [file tail $f]]} { lappend srcs $f }
+set fh [open $repo/rtl/rtl.f]
+foreach line [split [read $fh] "\n"] {
+    set line [string trim $line]
+    if {$line ne "" && ![string match "//*" $line]} { lappend srcs $repo/$line }
 }
+close $fh
 read_verilog -sv $srcs
 synth_design -top $top -part xc7a100tcsg324-1 -mode out_of_context -verilog_define SYNTHESIS
 create_clock -name CLK -period $period [get_ports CLK]

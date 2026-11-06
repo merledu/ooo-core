@@ -19,7 +19,10 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DESIGN = os.path.join(HERE, "..", "..", "Design")
+REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
+# RTL sources: every file listed in rtl/rtl.f (paths relative to the repository root)
+RTL = [os.path.join(REPO, l.strip()) for l in open(os.path.join(REPO, "rtl", "rtl.f"))
+       if l.strip() and not l.strip().startswith("//")]
 BUILD = os.path.join(HERE, "..", "build", "core")
 SIM = os.path.join(BUILD, "obj_dir", "Vtb_core")
 CONFIG = "default"   # "small": tiny ROB/LSQ/BIQ and 2 branch tags (tb_core.sv, +define+SMALL), "booth": +define+BOOTH
@@ -43,13 +46,12 @@ def set_config(config):
 
 def build():
     os.makedirs(BUILD, exist_ok=True)
-    srcs = sorted(f for f in os.listdir(DESIGN) if f.endswith(".sv") and not f.startswith("tb_"))
     cmd = ["verilator", "--binary", "--timing", "-O3", "--x-assign", "unique", "--x-initial", "unique",
            "-Wno-fatal", "-Wno-lint", "-Wno-style", "--top-module", "tb_core", "-j", "8",
            "--Mdir", os.path.join(BUILD, "obj_dir"), os.path.join(HERE, "tb_core.sv")]
     if CONFIG != "default":
         cmd.append("+define+" + CONFIG.upper())
-    cmd += [os.path.join(DESIGN, f) for f in srcs]
+    cmd += RTL
     r = sh(cmd)
     if r.returncode:
         print(r.stdout)

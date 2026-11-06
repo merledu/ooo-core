@@ -1,6 +1,19 @@
 # Verification
 
-Tools: Verilator (5.x), `riscv32-unknown-elf-gcc`, Spike, Python 3.
+Tools: Verilator (5.x), `riscv32-unknown-elf-gcc`, Spike, Python 3. All build output goes to
+`sim/build/` (ignored by git). Every simulation reads the RTL file list from `rtl/rtl.f`.
+
+## Everything at once
+
+```
+sim/scripts/run_all.sh          # unit tests + core against Spike (exit 1 on any failure)
+sim/scripts/run_all.sh --full   # also the small / booth configurations and CoreMark / Dhrystone against Spike
+```
+
+## Smoke run (`smoke/`)
+
+`tb_main_datapath.sv` runs `instructions.hex` (one 32-bit instruction per line, first instruction at
+address 0) for 500 ns and writes `waveform.vcd`. Another program: `+HEX=<file>`.
 
 ## Whole core against Spike (`core/`)
 
@@ -9,7 +22,7 @@ Tools: Verilator (5.x), `riscv32-unknown-elf-gcc`, Spike, Python 3.
 program on the Spike ISA simulator and requires both lists to be identical.
 
 ```
-cd TestBenches/core
+cd sim/core
 ./run.py all                        # asm/*.S, c/*.c (-O0 and -O2) and 100 random programs
 ./run.py random -n 500 --seed 1     # random programs (profiles: mix alu mem branch muldiv)
 ./run.py test c/sort.c asm/smoke.S  # chosen programs
@@ -17,7 +30,7 @@ cd TestBenches/core
 ./run.py all --config booth         # radix-4 Booth multiplier (ASIC version) instead of the DSP one
 ```
 
-Useful options: `-v` (one line per test), `--vcd` (waveform in `build/core/tests/<name>/`),
+Useful options: `-v` (one line per test), `--vcd` (waveform in `sim/build/core/tests/<name>/`),
 `--no-build`. A failing test prints the first commit or memory write that differs.
 Running the simulator by hand with `+DEBUG` prints one line per pipeline event.
 
@@ -28,7 +41,7 @@ Running the simulator by hand with `+DEBUG` prints one line per pipeline event.
 ## Module tests (`unit/`)
 
 ```
-cd TestBenches/unit
+cd sim/unit
 ./run_unit.sh               # all tb_*.sv
 ./run_unit.sh tb_lsq        # one of them
 ```
@@ -44,15 +57,13 @@ cd TestBenches/unit
 | `tb_cdb_arbiter` | CDB_Arbiter | all request combinations |
 | `tb_predictors` | BTB, PHT, GHR, RAS, BIQ | prediction structures |
 
-`RAT_TestBench.sv` is the old testbench of a module which no longer exists.
-
 ## RISC-V architectural tests (`riscof/`)
 
 The official RV32I and RV32M tests of [riscv-arch-test](https://github.com/riscv-non-isa/riscv-arch-test)
 run with RISCOF: the core (`ooo_core` plugin, simulated with `core/tb_core.sv`) against Spike (`spike_ref` plugin).
 
 ```
-cd TestBenches/riscof
+cd sim/riscof
 riscof run --config=config.ini --suite <riscv-arch-test>/riscv-test-suite --env <riscv-arch-test>/riscv-test-suite/env
 ```
 
@@ -62,21 +73,21 @@ The report is written to `riscof_work/report.html`. The ISA of the core is decla
 ## Benchmarks (`bench/`)
 
 ```
-cd TestBenches/bench
+cd sim/bench
 ./run_bench.py              # CoreMark and Dhrystone: cycles, IPC, CoreMark/MHz, DMIPS/MHz
 ./run_bench.py --check      # also compare the whole run with Spike
 ```
 
-The benchmark sources are downloaded to `build/bench/src`; `coremark_port/` and `dhrystone_port/` hold the
+The benchmark sources are downloaded to `sim/build/bench/src`; `coremark_port/` and `dhrystone_port/` hold the
 bare metal ports. Time is not measured by the program (the core has no timer): the benchmark writes a marker
 word at the start and end of its timed part and the testbench provides the clock cycle of every memory write.
 
-## FPGA synthesis (`../Synthesis`)
+## FPGA synthesis (`../fpga`)
 
 ```
-cd Synthesis
+cd fpga
 vivado -mode batch -source synth.tcl                    # synthesis + place and route, Artix-7 xc7a100tcsg324-1
 vivado -mode batch -source synth.tcl -tclargs synth     # synthesis only
 ```
 
-Reports (utilization, timing) are written to `Synthesis/build/`.
+Reports (utilization, timing) are written to `fpga/build/`.

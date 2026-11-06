@@ -2,7 +2,8 @@
 # Runs the unit testbenches (tb_*.sv in this directory) with Verilator.
 # usage: ./run_unit.sh [tb_name ...]
 cd "$(dirname "$0")"
-DESIGN=${DESIGN:-../../Design}
+# every folder of rtl/ is searched for the modules a testbench uses
+RTL_DIRS=$(grep -v "^//" ../../rtl/rtl.f | xargs -n1 dirname | sort -u | sed "s|^|-y ../../|")
 BUILD=${BUILD:-../build/unit}
 mkdir -p $BUILD
 tbs="$@"
@@ -10,7 +11,7 @@ tbs="$@"
 fail=0
 for tb in $tbs; do
     if ! verilator --binary --timing --timescale 1ns/1ps -Wno-fatal -Wno-lint -Wno-style --x-assign unique --x-initial unique \
-         --top-module $tb --Mdir $BUILD/$tb -y $DESIGN $tb.sv > $BUILD/$tb.build.log 2>&1; then
+         --top-module $tb --Mdir $BUILD/$tb $RTL_DIRS $tb.sv > $BUILD/$tb.build.log 2>&1; then
         echo "FAIL $tb (build, see $BUILD/$tb.build.log)"; fail=1; continue
     fi
     out=$($BUILD/$tb/V$tb +verilator+rand+reset+2 2>&1 | grep -E "^(PASS|FAIL)" | head -25)

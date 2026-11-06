@@ -13,7 +13,7 @@ MEM_WORDS = 1 << 21   # 8 MB image (jal-01 alone is about 2 MB)
 
 
 class ooo_core(pluginTemplate):
-    """DUT plugin: the out-of-order core simulated with Verilator (TestBenches/core/tb_core.sv)."""
+    """DUT plugin: the out-of-order core simulated with Verilator (sim/core/tb_core.sv)."""
     __model__ = "ooo_core"
     __version__ = "1.0"
 
@@ -28,7 +28,7 @@ class ooo_core(pluginTemplate):
         self.isa_spec = os.path.abspath(config['ispec'])
         self.platform_spec = os.path.abspath(config['pspec'])
         self.target_run = not ('target_run' in config and config['target_run'] == '0')
-        self.build_dir = os.path.join(REPO, "TestBenches", "build", "core_riscof")
+        self.build_dir = os.path.join(REPO, "sim", "build", "core_riscof")
         self.sim = os.path.join(self.build_dir, "obj_dir", "Vtb_core")
         return sclass
 
@@ -45,12 +45,13 @@ class ooo_core(pluginTemplate):
         self.xlen = ('64' if 64 in ispec['supported_xlen'] else '32')
         self.compile_cmd = self.compile_cmd + ' -mabi=' + ('lp64 ' if 64 in ispec['supported_xlen'] else 'ilp32 ')
         # build the simulator of the core
-        design = os.path.join(REPO, "Design")
-        srcs = sorted(os.path.join(design, f) for f in os.listdir(design) if f.endswith(".sv") and not f.startswith("tb_"))
+        # RTL sources: every file listed in rtl/rtl.f
+        srcs = [os.path.join(REPO, l.strip()) for l in open(os.path.join(REPO, "rtl", "rtl.f"))
+                if l.strip() and not l.strip().startswith("//")]
         os.makedirs(self.build_dir, exist_ok=True)
         cmd = ("verilator --binary --timing -O3 --x-assign unique --x-initial unique -Wno-fatal -Wno-lint -Wno-style "
                "--top-module tb_core -j 8 +define+TB_MEM_WORDS=%d --Mdir %s %s %s > %s 2>&1" %
-               (MEM_WORDS, os.path.join(self.build_dir, "obj_dir"), os.path.join(REPO, "TestBenches", "core", "tb_core.sv"),
+               (MEM_WORDS, os.path.join(self.build_dir, "obj_dir"), os.path.join(REPO, "sim", "core", "tb_core.sv"),
                 " ".join(srcs), os.path.join(self.build_dir, "build.log")))
         logger.info("Building the simulator of the core")
         if os.system(cmd) != 0 or shutil.which(self.sim) is None:
