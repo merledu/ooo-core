@@ -108,6 +108,32 @@ Possible components include:
 
 ---
 
+## Running a program
+
+`Design/tb_main_datapath.sv` runs the program in `Design/instructions.hex` (one 32-bit instruction per line,
+first instruction at address 0). Another file can be chosen with `+HEX=<file>`.
+
+Parameters of `main_datapath`: `RESET_PC` (address of the first instruction), `IM_ROWS` and `RAM_DEPTH`
+(memory sizes in words, powers of 2), `ROB_SIZE`, `IQ_ROWS`, `LQ_ENTRIES`, `SQ_ENTRIES`, `MAX_BRANCHES`,
+`PHT_ADDRESS`/`GHR_SIZE` (gshare), `BTB_ROWS`, ...
+
+* `USE_DSP_MUL`: 1 (default, FPGA) pipelined multiplier `MUL_DSP` mapped to DSP blocks, result 3 cycles after
+  execute; 0 (ASIC) radix-4 Booth multiplier `MUL_Unit`, ~18 cycles.
+* `DMEM_DUAL_PORT`: 1 gives the data memory a store write port and a load read port (loads are not blocked by
+  committed stores). Default 0: with the extra port loads run ahead of older stores more often and, without a
+  memory dependence predictor, the extra memory order flushes cost more than the port gains.
+* `NUM_PHY_REG` can be set below `1 << PRF_ADDRESS`; `NUM_PHY_REG - 32` (free list size) must be a power of 2.
+
+Limits: instruction and data memory are separate, `ecall`/`ebreak`/CSR/`fence` instructions are ignored
+and memory accesses must be aligned.
+
+## Verification
+
+The core is compared instruction by instruction with the Spike ISA simulator (random programs and
+compiled C programs) and the main modules have their own testbenches. See [TestBenches/README.md](TestBenches/README.md).
+
+---
+
 ## Author
 
 Mutahir Ahmed Siddiqui

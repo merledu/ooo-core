@@ -1,0 +1,4 @@
+# simulation output (regenerated on every run)
+*.vcd
+obj_dir/
+__pycache__/
