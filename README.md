@@ -4,7 +4,9 @@ A **dual-issue out-of-order RV32IM processor** in SystemVerilog. It fetches, ren
 two instructions per clock, runs them out of order behind a 12-stage pipeline, and retires them in
 program order. Every committed instruction is checked against the Spike ISA simulator.
 
-![Processor architecture](docs/images/processor_architecture.png)
+![ooo-core datapath](docs/images/ooo_core_datapath.png)
+
+Editable source: [`docs/diagrams/ooo_core_datapath.drawio`](docs/diagrams/ooo_core_datapath.drawio) (open in draw.io). Previous diagram: [`docs/images/processor_architecture.png`](docs/images/processor_architecture.png).
 
 ## Design in six sentences
 
