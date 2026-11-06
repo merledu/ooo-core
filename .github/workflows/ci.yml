@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  rtl-lint:
+    name: RTL lint (Verilator)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator
+      - name: Lint every file in rtl/rtl.f
+        # -Wno-fatal: warnings are shown but do not fail the job yet.
+        # Remove it once the existing warnings are fixed, so new ones block the PR.
+        run: verilator --lint-only -sv -Wall -Wno-fatal --top-module main_datapath -f rtl/rtl.f
+
+  unit-tests:
+    name: Unit tests (Verilator)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator
+      - name: Run sim/unit/run_unit.sh
+        run: sim/unit/run_unit.sh
+
+  repo-hygiene:
+    name: No generated or large files
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject generated files
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)(build|obj_dir|riscof_work|__pycache__|\.Xil)/|\.(vcd|fst|wlf|dcp|jou|log|rpt|bit|pptx)$' || true)
+          if [ -n "$bad" ]; then echo "Generated files in git:"; echo "$bad"; exit 1; fi
+      - name: Reject files over 1 MB
+        run: |
+          big=$(git ls-files -z | xargs -0 du -k | awk '$1 > 1024 {print $2}')
+          if [ -n "$big" ]; then echo "Files over 1 MB:"; echo "$big"; exit 1; fi

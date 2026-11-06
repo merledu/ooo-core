@@ -1,0 +1,15 @@
+# Checks that run on every `git commit` (install once: pip install pre-commit && pre-commit install)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files      # nothing over 1 MB (waveforms, checkpoints, slides)
+        args: ["--maxkb=1024"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: '\.(hex|drawio|html)$'
+      - id: trailing-whitespace
+        exclude: '\.(hex|drawio|html)$'
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
