@@ -22,14 +22,10 @@ Reference point: NaxRiscv, 5.02 CoreMark/MHz, 2.93 DMIPS/MHz.
 |---|---|---|
 | Directed asm / C programs (-O0 and -O2) + 100 random programs, default configuration | 111 / 111 identical to Spike | `sim/core/run.py all`, 2026-11-06 |
 | Same, `--config small` (ROB 16, IQ 8, LQ 8, SQ 4, 2 branch tags) | 111 / 111 | `run.py all --config small` |
-| Same, `--config booth` (radix-4 Booth multiplier) | 110 / 111 (`rand_mix_36` fails: reset-write bug, see below) | `run.py all --config booth` |
+| Same, `--config booth` (radix-4 Booth multiplier) | 111 / 111 | `run.py all --config booth` |
 | RISCOF RV32I + RV32M architectural tests | 47 / 47 | `sim/riscof`, report in `sim/riscof/riscof_work/report.html` |
 | CoreMark, Dhrystone: every commit and memory write | identical to Spike | `run_bench.py --check` |
 | Module tests | 8 / 8 | `sim/unit/run_unit.sh` |
-
-**Known bug:** the LSQ writes the data memory once during reset (`lsq_mem_write` is not gated by `reset`, and the SQ
-pointers are random until the first clock edge). Which word gets corrupted depends on the random initial values, which
-`run.py` seeds from the program's path, so moving the repository changed which test shows it. See `CHANGELOG.md`.
 
 ## Resources and frequency (Artix-7 xc7a100tcsg324-1, out of context)
 

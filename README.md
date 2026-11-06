@@ -33,7 +33,7 @@ choice in [`docs/decisions/`](docs/decisions/), and measured results in [`docs/s
 | ISA | RV32IM (no CSRs, traps or `fence`; aligned accesses only) |
 | CoreMark | **3.53 CoreMark/MHz** (IPC 1.02) |
 | Dhrystone | **1.30 DMIPS/MHz** (IPC 1.22) |
-| Correctness | identical to Spike on 111 directed and random programs in 3 configurations (one known reset bug, see [`CHANGELOG.md`](CHANGELOG.md)), CoreMark, Dhrystone; RISCOF RV32I + RV32M 47/47 |
+| Correctness | identical to Spike on 111 directed and random programs in 3 configurations, CoreMark, Dhrystone; RISCOF RV32I + RV32M 47/47 |
 | FPGA (Artix-7 xc7a100t-1) | ≈ 30 MHz routed today; frequency work towards 150 MHz in progress |
 
 Memories are ideal one-cycle RAMs for now. Details and sources: [`docs/scorecard.md`](docs/scorecard.md).
@@ -49,7 +49,7 @@ Memories are ideal one-cycle RAMs for now. Details and sources: [`docs/scorecard
 | Execute (ALUs, forwarding, DSP / Booth multiplier, divider, CDB arbiter) | `rtl/execute/` | RTL + unit tests |
 | Load / store queue, data memory | `rtl/memory/` | RTL + unit tests |
 | ROB and commit | `rtl/commit/` | RTL + unit tests |
-| Whole core | `rtl/top/` | matches Spike, RISCOF RV32IM passes; one known bug: LSQ writes memory during reset |
+| Whole core | `rtl/top/` | matches Spike, RISCOF RV32IM passes |
 | 150 MHz on xc7a100t-1 | `fpga/` | in progress |
 | Caches, CSRs and traps, Linux | | planned (see the versions in [`docs/git-workflow.md`](docs/git-workflow.md)) |
 

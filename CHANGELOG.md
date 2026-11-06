@@ -6,13 +6,7 @@ The plan for the next versions is in [`docs/git-workflow.md`](docs/git-workflow.
 
 ## [Unreleased]
 
-Becomes `v0.2.0` once the reset-write fix below is merged and `sim/scripts/run_all.sh --full` passes.
-
-### Known issue (to fix before v0.2.0)
-- LSQ writes the data memory once while `reset` is high: before the first clock edge `sq_head` / `sq_commit` hold
-  random values, `lsq_mem_write = (sq_head != sq_commit)` is not gated by `reset`, so a random SQ entry is written to a
-  random word. With random initial values (`+verilator+rand+reset+2`) `rand_mix_36 --config booth` loads the corrupted
-  byte (core `a0967eb4`, Spike `a0967e04`). Not visible on the FPGA, where flip-flops start at 0.
+Becomes `v0.2.0`.
 
 ### Changed
 - Repository restructured: `rtl/<section>/`, `sim/`, `fpga/`, `docs/` (see `STRUCTURE.md` for old → new paths).
@@ -35,6 +29,9 @@ Becomes `v0.2.0` once the reset-write fix below is merged and `sim/scripts/run_a
   pre-commit checks, specification, design decisions, scorecard.
 
 ### Fixed
+- LSQ no longer writes the data memory while `reset` is high. Before the first clock edge `sq_head` / `sq_commit`
+  could hold any value, so a random SQ entry was written to a random word (seen with random initial values as
+  `rand_mix_36 --config booth` loading a corrupted byte). Not visible on the FPGA, where flip-flops start at 0.
 - MUL / DIV units: iteration count and high word; results held until the CDB takes them; waiting results flushed
   on a misprediction.
 - EX stage: `jalr` target and not-taken redirect; branches and stores report completion.

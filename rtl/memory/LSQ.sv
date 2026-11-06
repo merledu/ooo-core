@@ -214,7 +214,8 @@ module LSQ #(
         lsq_memory_address = '0; lsq_mem_write_data = '0; lsq_mem_size = '0;
         lsq_load_address = '0; lsq_load_size = '0; lsq_mem_sign_ext = '0;
 
-        if (sq_head != sq_commit) begin
+        // not during reset: until the first clock edge the pointers can hold any value
+        if (!reset && (sq_head != sq_commit)) begin
             lsq_memory_address = SQ[sq_head[SQ_ADDRESS-1:0]].address;
             lsq_mem_write_data = SQ[sq_head[SQ_ADDRESS-1:0]].data;
             lsq_mem_size       = SQ[sq_head[SQ_ADDRESS-1:0]].size;
