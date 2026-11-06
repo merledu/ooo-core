@@ -45,6 +45,11 @@ More detail: [architecture](docs/spec/architecture.md) · [design decisions](doc
 
 Measured in simulation with ideal one-cycle memories.
 
+RISCOF report (all 47 RV32I + RV32M tests passed): `report.html` in the
+[v0.2.0 release](https://github.com/merledu/ooo-core/releases/tag/v0.2.0).
+To make it yourself, see [RISC-V architectural tests](sim/README.md#risc-v-architectural-tests-riscof);
+it is written to `sim/riscof/riscof_work/report.html`.
+
 ## Status
 
 | Done | In progress | Planned |
