@@ -6,7 +6,9 @@ The plan for the next versions is in [`docs/git-workflow.md`](docs/git-workflow.
 
 ## [Unreleased]
 
-Becomes `v0.2.0`.
+## [0.2.0] - 2026-11-07
+
+The core matches Spike on every test, and the repository is set up for the team.
 
 ### Changed
 - Repository restructured: `rtl/<section>/`, `sim/`, `fpga/`, `docs/` (see `STRUCTURE.md` for old → new paths).
@@ -21,6 +23,7 @@ Becomes `v0.2.0`.
 - `MUL_DSP`: 3-stage pipelined multiplier for FPGA DSPs (`USE_DSP_MUL = 1`, default); the Booth `MUL_Unit` stays for ASIC.
 - `DMEM_DUAL_PORT` option: separate store and load ports on the data memory (default off).
 - Observation ports on `main_datapath` (commits, memory writes).
+- New datapath diagram matching the current RTL: `docs/diagrams/ooo_core_datapath.drawio` (editable) and `docs/images/ooo_core_datapath.png`.
 - Verification: module testbenches, co-simulation of the whole core against Spike (directed and random programs,
   three configurations), RISCOF RV32I / RV32M, CoreMark and Dhrystone ports checked against Spike.
 - Vivado scripts for the Artix-7 xc7a100tcsg324-1: synthesis, place and route, timing maps.
@@ -45,5 +48,6 @@ Becomes `v0.2.0`.
 All 12 pipeline stages in RTL, merged stage by stage (PRs #1 to #6): prediction, fetch, decode, rename,
 dispatch, issue, register read, execute, LSQ, memory, writeback, commit.
 
-[Unreleased]: https://github.com/merledu/ooo-core/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/merledu/ooo-core/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/merledu/ooo-core/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/merledu/ooo-core/releases/tag/v0.1.0
