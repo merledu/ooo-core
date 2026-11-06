@@ -1,141 +1,109 @@
-# RV32IM Dual-Issue Out-of-Order Processor
+# ooo-core
 
-## Overview
+A **dual-issue out-of-order RV32IM processor** in SystemVerilog. It fetches, renames and commits
+two instructions per clock, runs them out of order behind a 12-stage pipeline, and retires them in
+program order. Every committed instruction is checked against the Spike ISA simulator.
 
-This project implements a **dual-issue out-of-order RV32IM processor** in **SystemVerilog**. The processor exploits instruction-level parallelism through dynamic scheduling, register renaming, speculative execution, and in-order retirement.
+![Processor architecture](docs/images/processor_architecture.png)
 
-The microarchitecture is organized as a **12-stage pipeline**:
+## Design in six sentences
 
-1. Prediction
-2. Fetch
-3. Decode
-4. Rename
-5. Dispatch
-6. Issue
-7. Register Read
-8. Execute
-9. LSQ
-10. Memory
-11. Writeback
-12. Commit
+1. A gshare predictor (12-bit global history, 4096-entry PHT), a 2-way 256-entry BTB and an 8-entry return
+   address stack pick the next fetch bundle of two instructions.
+2. Decode records every branch in the branch information queue (BIQ), which trains the PHT only when the
+   branch commits, so wrong-path branches never train it.
+3. Rename maps 32 architectural registers onto 64 physical ones (map table, free list, and a snapshot for each
+   of up to 8 unresolved branches to recover from a misprediction).
+4. Dispatch writes the 64-entry ROB, the 32-row issue queue and the load / store queues (16 loads, 32 stores);
+   ready instructions issue out of order to two ALUs, a pipelined multiplier, a divider and two AGUs.
+5. Loads run ahead of older stores with store-to-load forwarding; a load that read too early is caught when the
+   store's address arrives, and everything not yet committed is flushed and fetched again.
+6. Two results per clock go out on the common data bus; the ROB commits up to two instructions per clock and
+   writes stores to memory in order.
 
----
-## Architecture Diagram
+The full description is in [`docs/spec/architecture.md`](docs/spec/architecture.md), the reasons behind each
+choice in [`docs/decisions/`](docs/decisions/), and measured results in [`docs/scorecard.md`](docs/scorecard.md).
 
-![Processor Architecture](Documentation/processor_architecture.png)
----
+## Results
 
-## Key Features
+| | |
+|---|---|
+| ISA | RV32IM (no CSRs, traps or `fence`; aligned accesses only) |
+| CoreMark | **3.53 CoreMark/MHz** (IPC 1.02) |
+| Dhrystone | **1.30 DMIPS/MHz** (IPC 1.22) |
+| Correctness | identical to Spike on 111 directed and random programs in 3 configurations (one known reset bug, see [`CHANGELOG.md`](CHANGELOG.md)), CoreMark, Dhrystone; RISCOF RV32I + RV32M 47/47 |
+| FPGA (Artix-7 xc7a100t-1) | ≈ 30 MHz routed today; frequency work towards 150 MHz in progress |
 
-- RV32IM ISA support
-- Dual-issue superscalar front-end
-- Out-of-order execution
-- Register renaming
-- Dynamic instruction scheduling
-- Branch prediction
-- Load Store Queue (LSQ)
-- Reorder Buffer (ROB)
-- Speculative execution
-- In-order commit
-- Modular SystemVerilog implementation
+Memories are ideal one-cycle RAMs for now. Details and sources: [`docs/scorecard.md`](docs/scorecard.md).
 
----
+## Status
 
-## Pipeline Stages
+| Block | Folder | State |
+|---|---|---|
+| Prediction and fetch (PC, gshare, BTB, RAS, instruction memory, pre-decode) | `rtl/frontend/` | RTL + unit tests |
+| Decode (control unit, immediates, BIQ) | `rtl/decode/` | RTL + unit tests |
+| Rename (map table, free list, branch snapshots) | `rtl/rename/` | RTL + unit tests |
+| Dispatch, issue queue, register read, physical register file | `rtl/issue/` | RTL, tested in the whole core |
+| Execute (ALUs, forwarding, DSP / Booth multiplier, divider, CDB arbiter) | `rtl/execute/` | RTL + unit tests |
+| Load / store queue, data memory | `rtl/memory/` | RTL + unit tests |
+| ROB and commit | `rtl/commit/` | RTL + unit tests |
+| Whole core | `rtl/top/` | matches Spike, RISCOF RV32IM passes; one known bug: LSQ writes memory during reset |
+| 150 MHz on xc7a100t-1 | `fpga/` | in progress |
+| Caches, CSRs and traps, Linux | | planned (see the versions in [`docs/git-workflow.md`](docs/git-workflow.md)) |
 
-### 1. Prediction
-Generates the next program counter using branch prediction structures and speculative control-flow information.
+Open work is tracked in the GitHub issues.
 
-### 2. Fetch
-Fetches up to two instructions per cycle from instruction memory.
+## Repository layout
 
-### 3. Decode
-Decodes fetched instructions and extracts source/destination operands and control information.
+```
+rtl/              synthesizable SystemVerilog, one folder per pipeline section;
+                  rtl/rtl.f lists every file (used by simulation, lint and Vivado)
+sim/unit/         module testbenches (run_unit.sh)
+sim/core/         whole core against Spike: directed asm / C programs and a random program generator
+sim/riscof/       RISC-V architectural tests (RISCOF plugins for the core and Spike)
+sim/bench/        CoreMark and Dhrystone ports and runner
+sim/smoke/        tb_main_datapath: runs one hex program and dumps a waveform
+sim/scripts/      run_all.sh: the whole regression, exit 1 on failure
+fpga/             Vivado scripts: synthesis, place and route, timing maps (Artix-7 xc7a100tcsg324-1)
+docs/spec/        architecture, parameters, interfaces
+docs/decisions/   one file per design decision and why
+docs/scorecard.md measured performance, correctness, resources and frequency
+```
 
-### 4. Rename
-Maps architectural registers to physical registers, eliminating WAR and WAW hazards.
+Full map: [`STRUCTURE.md`](STRUCTURE.md).
 
-### 5. Dispatch
-Allocates resources such as ROB entries, issue queue entries, and LSQ entries.
+## Quick start
 
-### 6. Issue
-Selects ready instructions for execution based on operand availability and functional unit readiness.
+Tools: Verilator 5, `riscv32-unknown-elf-gcc` (rv32im), Spike, Python 3; Vivado for synthesis.
 
-### 7. Register Read
-Reads source operands from the physical register file or receives forwarded values.
+```bash
+# unit tests + the core against Spike on directed and 100 random programs
+sim/scripts/run_all.sh
 
-### 8. Execute
-Performs ALU operations, branch evaluation, multiplication/division, and address generation.
+# also the small / Booth configurations and CoreMark / Dhrystone checked against Spike
+sim/scripts/run_all.sh --full
 
-### 9. LSQ
-Handles memory dependency tracking and load/store ordering.
+# benchmarks only (cycles, IPC, CoreMark/MHz, DMIPS/MHz)
+sim/bench/run_bench.py
 
-### 10. Memory
-Accesses data memory for load and store operations.
+# synthesis + place and route of the core
+cd fpga && vivado -mode batch -source synth.tcl
+```
 
-### 11. Writeback
-Broadcasts execution results and updates destination physical registers.
+More commands and options: [`sim/README.md`](sim/README.md).
 
-### 12. Commit
-Retires instructions in program order and updates architectural state.
+Generated files (`sim/build/`, `fpga/build/`, waveforms, Vivado checkpoints and logs) are never committed;
+rebuild them with the scripts above.
 
----
+## How we work
 
-## Out-of-Order Execution
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`docs/git-workflow.md`](docs/git-workflow.md)
+before your first commit: one issue per task, one branch per issue, a pull request into
+`main`, and a review before merging. Every PR runs the CI checks (RTL lint, unit tests, no generated or
+large files). Changes and versions are listed in [`CHANGELOG.md`](CHANGELOG.md).
 
-The processor supports out-of-order execution using:
+## Team
 
-- Register Alias Table (RAT)
-- Physical Register File (PRF)
-- Reorder Buffer (ROB)
-- Issue Queue / Reservation Stations
-- Load Store Queue (LSQ)
-
-Instructions may execute as soon as their operands become available, regardless of original program order. Correct architectural state is preserved through in-order commit.
-
----
-
-## Branch Prediction
-
-The prediction stage supports speculative execution to reduce branch penalties.
-
-Possible components include:
-
-- Branch Target Buffer (BTB)
-- Pattern History Table (PHT)
-- Return Address Stack (RAS)
-
-
----
-
-## Running a program
-
-`Design/tb_main_datapath.sv` runs the program in `Design/instructions.hex` (one 32-bit instruction per line,
-first instruction at address 0). Another file can be chosen with `+HEX=<file>`.
-
-Parameters of `main_datapath`: `RESET_PC` (address of the first instruction), `IM_ROWS` and `RAM_DEPTH`
-(memory sizes in words, powers of 2), `ROB_SIZE`, `IQ_ROWS`, `LQ_ENTRIES`, `SQ_ENTRIES`, `MAX_BRANCHES`,
-`PHT_ADDRESS`/`GHR_SIZE` (gshare), `BTB_ROWS`, ...
-
-* `USE_DSP_MUL`: 1 (default, FPGA) pipelined multiplier `MUL_DSP` mapped to DSP blocks, result 3 cycles after
-  execute; 0 (ASIC) radix-4 Booth multiplier `MUL_Unit`, ~18 cycles.
-* `DMEM_DUAL_PORT`: 1 gives the data memory a store write port and a load read port (loads are not blocked by
-  committed stores). Default 0: with the extra port loads run ahead of older stores more often and, without a
-  memory dependence predictor, the extra memory order flushes cost more than the port gains.
-* `NUM_PHY_REG` can be set below `1 << PRF_ADDRESS`; `NUM_PHY_REG - 32` (free list size) must be a power of 2.
-
-Limits: instruction and data memory are separate, `ecall`/`ebreak`/CSR/`fence` instructions are ignored
-and memory accesses must be aligned.
-
-## Verification
-
-The core is compared instruction by instruction with the Spike ISA simulator (random programs and
-compiled C programs) and the main modules have their own testbenches. See [TestBenches/README.md](TestBenches/README.md).
-
----
-
-## Author
-
-Mutahir Ahmed Siddiqui
-
----
+| Name | GitHub |
+|---|---|
+| Mutahir Ahmed Siddiqui | @HafizMutahirAhmed |
