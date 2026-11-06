@@ -104,6 +104,6 @@ large files). Changes and versions are listed in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Team
 
-| Name | GitHub |
-|---|---|
-| Mutahir Ahmed Siddiqui | @HafizMutahirAhmed |
+| Name | Role | GitHub |
+|---|---|---|
+| Mutahir Ahmed Siddiqui | Research Fellow @ Micro Electronics Research Lab - UITU | @HafizMutahirAhmed |
