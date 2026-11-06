@@ -10,6 +10,8 @@ module DataMemoryWrapper #(
     input logic [XLEN-1:0] lsq_memory_address,
     input logic [XLEN-1:0] lsq_mem_write_data,
     input logic [1:0] lsq_mem_size,             
+    input logic [XLEN-1:0] lsq_load_address,
+    input logic [1:0] lsq_load_size,
     input logic lsq_mem_sign_ext,
     input logic [LQ_ADDRESS-1:0] lsq_lq_index,
     input logic [31:0] ram_read_data,
@@ -18,14 +20,15 @@ module DataMemoryWrapper #(
     output logic [LQ_ADDRESS-1:0] mem_lq_index,
     output logic [XLEN-1:0] mem_read_data,
     output logic [3:0] ram_write_mask,
-    output logic [RAM_ADDRESS-1:0] ram_word_addr,
+    output logic [RAM_ADDRESS-1:0] ram_write_addr, ram_read_addr,
     output logic [31:0] ram_write_data
 );
 
     logic [1:0] write_offset;
     
     assign write_offset = lsq_memory_address[1:0];
-    assign ram_word_addr = lsq_memory_address[RAM_ADDRESS+1 : 2]; 
+    assign ram_write_addr = lsq_memory_address[RAM_ADDRESS+1 : 2];
+    assign ram_read_addr  = lsq_load_address[RAM_ADDRESS+1 : 2];
 
     always_comb begin
         ram_write_mask = 4'b0000;
@@ -58,9 +61,9 @@ module DataMemoryWrapper #(
         else begin
             saved_valid <= lsq_mem_read;
             if (lsq_mem_read) begin
-                saved_size     <= lsq_mem_size;  
+                saved_size     <= lsq_load_size;  
                 saved_sign_ext <= lsq_mem_sign_ext;
-                saved_offset   <= lsq_memory_address[1:0];
+                saved_offset   <= lsq_load_address[1:0];
                 saved_lq_index <= lsq_lq_index;
             end
         end

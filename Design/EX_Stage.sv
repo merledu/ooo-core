@@ -5,7 +5,8 @@ module EX_Stage #(
     parameter MAX_BRANCHES = 4,
     parameter BTAG_SIZE = $clog2(MAX_BRANCHES),
     parameter BIQ_ADDRESS = 5,
-    parameter MEM_INDEX_SIZE = 5
+    parameter MEM_INDEX_SIZE = 5,
+    parameter USE_DSP_MUL = 1          // 1: pipelined multiplier (MUL_DSP, FPGA), 0: radix-4 Booth (MUL_Unit, ASIC)
 ) (
     input logic CLK, reset, rob_global_flush,
     input logic mul_ack, div_ack,
@@ -294,33 +295,66 @@ module EX_Stage #(
     end
 
     // MUL & DIV
-    MUL_Unit #(
-        .XLEN                   (XLEN),
-        .PRF_ADDRESS            (PRF_ADDRESS),
-        .ROB_PTR_SIZE           (ROB_PTR_SIZE),
-        .MAX_BRANCHES           (MAX_BRANCHES)
-    ) mul_inst (
-        .CLK                    (CLK), 
-        .reset                  (reset), 
-        .flush                  (flush), 
-        .rob_global_flush       (rob_global_flush),
-        .cdb_branch_tag         (cdb_branch_tag), 
-        .cdb_branch_resolved    (cdb_branch_resolved), 
-        .cdb_branch_correct     (cdb_branch_correct),
-        .mul_ack                (mul_ack), 
-        .valid                  ((valid1 && is_mul1) || (valid2 && is_mul2)),
-        .rr_branch_mask         (((rr_valid1 && is_mul1) ? rr_branch_mask1 : rr_branch_mask2) & ~resolved_tag_bit),
-        .rs1_data               ((rr_valid1 && is_mul1) ? instr1_rs1_data : instr2_rs1_data),
-        .rs2_data               ((rr_valid1 && is_mul1) ? instr1_rs2_data : instr2_rs2_data),
-        .alu_operation          ((rr_valid1 && is_mul1) ? rr_alu_operation1 : rr_alu_operation2),
-        .rr_prd                 ((rr_valid1 && is_mul1) ? rr_prd1 : rr_prd2),
-        .rr_rob_index           ((rr_valid1 && is_mul1) ? rr_rob_index1 : rr_rob_index2),
-        .cdb_mul_busy           (cdb_mul_busy),
-        .cdb_write_data         (ex_mul_valid), 
-        .cdb_alu_result         (ex_mul_result),
-        .cdb_prd                (ex_mul_prd),
-        .cdb_rob_index          (ex_mul_rob_index)
-    );
+    generate
+        if (USE_DSP_MUL) begin : g_mul_dsp
+            MUL_DSP #(
+                .XLEN                   (XLEN),
+                .PRF_ADDRESS            (PRF_ADDRESS),
+                .ROB_PTR_SIZE           (ROB_PTR_SIZE),
+                .MAX_BRANCHES           (MAX_BRANCHES)
+            ) mul_inst (
+                .CLK                    (CLK), 
+                .reset                  (reset), 
+                .flush                  (flush), 
+                .rob_global_flush       (rob_global_flush),
+                .cdb_branch_tag         (cdb_branch_tag), 
+                .cdb_branch_resolved    (cdb_branch_resolved), 
+                .cdb_branch_correct     (cdb_branch_correct),
+                .mul_ack                (mul_ack), 
+                .valid                  ((valid1 && is_mul1) || (valid2 && is_mul2)),
+                .rr_branch_mask         (((rr_valid1 && is_mul1) ? rr_branch_mask1 : rr_branch_mask2) & ~resolved_tag_bit),
+                .rs1_data               ((rr_valid1 && is_mul1) ? instr1_rs1_data : instr2_rs1_data),
+                .rs2_data               ((rr_valid1 && is_mul1) ? instr1_rs2_data : instr2_rs2_data),
+                .alu_operation          ((rr_valid1 && is_mul1) ? rr_alu_operation1 : rr_alu_operation2),
+                .rr_prd                 ((rr_valid1 && is_mul1) ? rr_prd1 : rr_prd2),
+                .rr_rob_index           ((rr_valid1 && is_mul1) ? rr_rob_index1 : rr_rob_index2),
+                .cdb_mul_busy           (cdb_mul_busy),
+                .cdb_write_data         (ex_mul_valid), 
+                .cdb_alu_result         (ex_mul_result),
+                .cdb_prd                (ex_mul_prd),
+                .cdb_rob_index          (ex_mul_rob_index)
+            );
+        end
+        else begin : g_mul_booth
+            MUL_Unit #(
+                .XLEN                   (XLEN),
+                .PRF_ADDRESS            (PRF_ADDRESS),
+                .ROB_PTR_SIZE           (ROB_PTR_SIZE),
+                .MAX_BRANCHES           (MAX_BRANCHES)
+            ) mul_inst (
+                .CLK                    (CLK), 
+                .reset                  (reset), 
+                .flush                  (flush), 
+                .rob_global_flush       (rob_global_flush),
+                .cdb_branch_tag         (cdb_branch_tag), 
+                .cdb_branch_resolved    (cdb_branch_resolved), 
+                .cdb_branch_correct     (cdb_branch_correct),
+                .mul_ack                (mul_ack), 
+                .valid                  ((valid1 && is_mul1) || (valid2 && is_mul2)),
+                .rr_branch_mask         (((rr_valid1 && is_mul1) ? rr_branch_mask1 : rr_branch_mask2) & ~resolved_tag_bit),
+                .rs1_data               ((rr_valid1 && is_mul1) ? instr1_rs1_data : instr2_rs1_data),
+                .rs2_data               ((rr_valid1 && is_mul1) ? instr1_rs2_data : instr2_rs2_data),
+                .alu_operation          ((rr_valid1 && is_mul1) ? rr_alu_operation1 : rr_alu_operation2),
+                .rr_prd                 ((rr_valid1 && is_mul1) ? rr_prd1 : rr_prd2),
+                .rr_rob_index           ((rr_valid1 && is_mul1) ? rr_rob_index1 : rr_rob_index2),
+                .cdb_mul_busy           (cdb_mul_busy),
+                .cdb_write_data         (ex_mul_valid), 
+                .cdb_alu_result         (ex_mul_result),
+                .cdb_prd                (ex_mul_prd),
+                .cdb_rob_index          (ex_mul_rob_index)
+            );
+        end
+    endgenerate
 
     DIV_Unit #(
         .XLEN                   (XLEN),

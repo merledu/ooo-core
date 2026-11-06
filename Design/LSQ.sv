@@ -7,7 +7,8 @@ module LSQ #(
     parameter PRF_ADDRESS = 6,
     parameter ROB_SIZE = 64,
     parameter ROB_PTR_SIZE = $clog2(ROB_SIZE),
-    parameter MEM_INDEX_SIZE = 5
+    parameter MEM_INDEX_SIZE = 5,
+    parameter DMEM_DUAL_PORT = 0    // 1: data memory has a write port for stores and a read port for loads
 ) (
     input logic CLK, reset, dis_fire, rob_global_flush, flush,
     // Dispatch
@@ -47,7 +48,9 @@ module LSQ #(
     output logic [LQ_ADDRESS-1:0] lsq_lq_index,
     output logic [PRF_ADDRESS-1:0] lsq_write_prf_address,
     output logic [ROB_PTR_SIZE-1:0] lsq_rob_index,
-    output logic [1:0] lsq_mem_size,
+    output logic [1:0] lsq_mem_size,                // store written to memory
+    output logic [XLEN-1:0] lsq_load_address,       // load read from memory
+    output logic [1:0] lsq_load_size,
     output logic lsq_mem_sign_ext
 );
 
@@ -199,14 +202,17 @@ module LSQ #(
         // nothing is fired in the cycle a store address arrives, so that the violation check below never misses a load
         fire_forward = fire_found && !store_arriving && fire_hit && fire_cover;
         // a store which writes only a part of the loaded bytes cannot be forwarded: wait until it is in memory
-        fire_read    = fire_found && !store_arriving && !fire_hit && !lsq_mem_write;
+        // (one memory port: not while a committed store is written)
+        fire_read    = fire_found && !store_arriving && !fire_hit && (DMEM_DUAL_PORT || !lsq_mem_write);
     end
 
-    // Memory Arbiter: committed stores are written in order, loads use the port when it is free
+    // Memory Arbiter: committed stores are written in order. A load reads in the same cycle with two ports,
+    // otherwise only when no store is written. The store being written is older than every load which can
+    // read: a load overlapping it forwards or waits (fire_hit), so both ports never use the same bytes.
     always_comb begin
         lsq_mem_write = 0; lsq_mem_read = 0; lsq_lq_index = '0;
-        lsq_memory_address = '0; lsq_mem_write_data = '0;
-        lsq_mem_size = '0; lsq_mem_sign_ext = '0;
+        lsq_memory_address = '0; lsq_mem_write_data = '0; lsq_mem_size = '0;
+        lsq_load_address = '0; lsq_load_size = '0; lsq_mem_sign_ext = '0;
 
         if (sq_head != sq_commit) begin
             lsq_memory_address = SQ[sq_head[SQ_ADDRESS-1:0]].address;
@@ -214,10 +220,10 @@ module LSQ #(
             lsq_mem_size       = SQ[sq_head[SQ_ADDRESS-1:0]].size;
             lsq_mem_write = 1;
         end
-        else if (fire_found && !store_arriving && !fire_hit) begin
-            lsq_memory_address = LQ[fire_index].address;
+        if (fire_read) begin
+            lsq_load_address   = LQ[fire_index].address;
             lsq_lq_index       = fire_index;
-            lsq_mem_size       = LQ[fire_index].size;
+            lsq_load_size      = LQ[fire_index].size;
             lsq_mem_sign_ext   = LQ[fire_index].sign_extend;
             lsq_mem_read = 1;
         end

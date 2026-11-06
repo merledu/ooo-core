@@ -197,14 +197,14 @@ module RN_Stage #(
     );
 
     FL #(
-        .PRF_ADDRESS        (PRF_ADDRESS)
+        .PRF_ADDRESS        (PRF_ADDRESS),
+        .NUM_PHY_REG        (NUM_PHY_REG)
     ) fl_instantiation (
         .CLK                (CLK),
         .reset              (reset),
         .flush              (flush),
         .rename_en          (rename_en),
         .rob_global_flush   (rob_global_flush),
-        .amt_state          (amt_state),
         .pop1               (pop1),
         .pop2               (pop2),
         .id_branch1         (id_branch1),
@@ -226,6 +226,7 @@ module RN_Stage #(
 
     BS #(
         .PRF_ADDRESS            (PRF_ADDRESS),
+        .NUM_PHY_REG            (NUM_PHY_REG),
         .MAX_BRANCHES           (MAX_BRANCHES)
     ) bs_instantiation (
         .CLK                    (CLK),

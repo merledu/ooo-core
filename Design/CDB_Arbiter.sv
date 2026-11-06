@@ -1,8 +1,13 @@
 module CDB_Arbiter #(
     parameter XLEN = 32,
     parameter PRF_ADDRESS = 6,
-    parameter ROB_PTR_SIZE = 6
+    parameter ROB_PTR_SIZE = 6,
+    // 0: issue stops as soon as a LSQ/MUL/DIV result has to wait for a lane,
+    // 1: only when it already waited one cycle (the units hold their results, the ALUs get the lanes first)
+    parameter STALL_DELAY = 1
 ) (
+    input logic CLK, reset,
+
     // Priority 1: ALU 1
     input logic alu1_valid,
     input logic [XLEN-1:0] alu1_result,
@@ -52,6 +57,8 @@ module CDB_Arbiter #(
     output logic stall_issue
 );
 
+    logic lsq_wait, mul_wait, div_wait, lsq_waited, mul_waited, div_waited;
+
     always_comb begin
         cdb1_valid = 0; cdb1_result = '0; cdb1_prd = '0; cdb1_rob_index = '0;
         cdb2_valid = 0; cdb2_result = '0; cdb2_prd = '0; cdb2_rob_index = '0;
@@ -92,6 +99,20 @@ module CDB_Arbiter #(
         end
         
         // STALL LOGIC
-        stall_issue = (lsq_valid && !lsq_ack) || (mul_valid && !mul_ack) || (div_valid && !div_ack);
+        lsq_wait = lsq_valid && !lsq_ack;
+        mul_wait = mul_valid && !mul_ack;
+        div_wait = div_valid && !div_ack;
+        if (STALL_DELAY) stall_issue = (lsq_wait && lsq_waited) || (mul_wait && mul_waited) || (div_wait && div_waited);
+        else             stall_issue = lsq_wait || mul_wait || div_wait;
+    end
+
+    // result which was left waiting in the previous cycle
+    always_ff @(posedge CLK) begin
+        if (reset) begin
+            lsq_waited <= 0; mul_waited <= 0; div_waited <= 0;
+        end
+        else begin
+            lsq_waited <= lsq_wait; mul_waited <= mul_wait; div_waited <= div_wait;
+        end
     end
 endmodule

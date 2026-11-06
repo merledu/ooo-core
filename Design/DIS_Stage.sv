@@ -12,7 +12,8 @@ module DIS_Stage #(
     parameter SQ_ENTRIES = 16,
     parameter SQ_ADDRESS = $clog2(SQ_ENTRIES),
     parameter IQ_ROWS = 64,
-    parameter MEM_INDEX_SIZE = (LQ_ADDRESS > SQ_ADDRESS) ? LQ_ADDRESS : SQ_ADDRESS
+    parameter MEM_INDEX_SIZE = (LQ_ADDRESS > SQ_ADDRESS) ? LQ_ADDRESS : SQ_ADDRESS,
+    parameter DMEM_DUAL_PORT = 0
 ) (
     input logic CLK, reset, flush, cdb_mul_busy, cdb_div_busy,
     input logic stall_issue, // Arbiter backpressure
@@ -90,6 +91,8 @@ module DIS_Stage #(
     output logic lsq_mem_write, lsq_mem_read,
     output logic [XLEN-1:0] lsq_memory_address, lsq_mem_write_data,
     output logic [1:0] lsq_mem_size,
+    output logic [XLEN-1:0] lsq_load_address,
+    output logic [1:0] lsq_load_size,
     output logic lsq_mem_sign_ext,
     output logic lsq_write_prf,
     output logic [XLEN-1:0] lsq_write_prf_data,
@@ -314,7 +317,8 @@ module DIS_Stage #(
         .SQ_ENTRIES                 (SQ_ENTRIES),
         .PRF_ADDRESS                (PRF_ADDRESS),
         .ROB_SIZE                   (ROB_SIZE),
-        .MEM_INDEX_SIZE             (MEM_INDEX_SIZE)
+        .MEM_INDEX_SIZE             (MEM_INDEX_SIZE),
+        .DMEM_DUAL_PORT             (DMEM_DUAL_PORT)
     ) lsq_instantiation (
         .CLK                        (CLK),
         .reset                      (reset),
@@ -373,6 +377,8 @@ module DIS_Stage #(
         .lsq_memory_address         (lsq_memory_address),
         .lsq_mem_write_data         (lsq_mem_write_data),
         .lsq_mem_size               (lsq_mem_size),
+        .lsq_load_address           (lsq_load_address),
+        .lsq_load_size              (lsq_load_size),
         .lsq_mem_sign_ext           (lsq_mem_sign_ext),
         .lsq_write_prf              (lsq_write_prf),
         .lsq_write_prf_data         (lsq_write_prf_data),

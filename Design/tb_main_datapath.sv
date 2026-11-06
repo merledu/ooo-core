@@ -3,13 +3,13 @@ module tb_main_datapath();
     // Parameters
     localparam XLEN                = 32;
     localparam OPCODE_SIZE         = 7;
-    localparam PHT_ADDRESS         = 9;
-    localparam GHR_SIZE            = 9;
+    localparam PHT_ADDRESS         = 12;
+    localparam GHR_SIZE            = 12;
     localparam RAS_ADDRESS         = 3;
     localparam INIT_IMMEDIATE_SIZE = 21;
     localparam BIQ_ADDRESS         = 5;
     localparam PRF_ADDRESS         = 6;
-    localparam MAX_BRANCHES        = 4;
+    localparam MAX_BRANCHES        = 8;
     localparam BTAG_SIZE           = $clog2(MAX_BRANCHES);
     localparam ROB_SIZE            = 64;
     localparam ROB_PTR_SIZE        = $clog2(ROB_SIZE);

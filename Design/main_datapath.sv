@@ -22,34 +22,45 @@
 module main_datapath #(
     parameter XLEN                = 32,
     parameter OPCODE_SIZE         = 7,
-    parameter PHT_ADDRESS         = 9,
-    parameter GHR_SIZE            = 9,
+    parameter PHT_ADDRESS         = 12,
+    parameter GHR_SIZE            = 12,
     parameter RAS_ADDRESS         = 3,
+    parameter BTB_ROWS            = 256,                 // BTB entries in total (power of 2)
+    parameter BTB_WAYS            = 2,                   // BTB associativity (1: direct mapped)
     parameter INIT_IMMEDIATE_SIZE = 21,
     parameter BIQ_ADDRESS         = 5,
     parameter PRF_ADDRESS         = 6,
-    parameter MAX_BRANCHES        = 4,
+    parameter MAX_BRANCHES        = 8,
     parameter BTAG_SIZE           = $clog2(MAX_BRANCHES),
     parameter ROB_SIZE            = 64,
     parameter ROB_PTR_SIZE        = $clog2(ROB_SIZE),
-    parameter IQ_ROWS             = 64,
+    parameter IQ_ROWS             = 32,
     parameter NUM_PHY_REG         = 1 << PRF_ADDRESS,
     parameter FL_ROWS             = NUM_PHY_REG - 32,
     parameter FL_INDEX_WIDTH      = $clog2(FL_ROWS),
     parameter FL_PTR_WIDTH        = FL_INDEX_WIDTH + 1,
-    parameter LQ_ENTRIES          = 32,
+    parameter LQ_ENTRIES          = 16,
     parameter LQ_ADDRESS          = $clog2(LQ_ENTRIES),
-    parameter SQ_ENTRIES          = 16,
+    parameter SQ_ENTRIES          = 32,
     parameter SQ_ADDRESS          = $clog2(SQ_ENTRIES),
     parameter MEM_INDEX_SIZE      = (LQ_ADDRESS > SQ_ADDRESS) ? LQ_ADDRESS : SQ_ADDRESS,
     parameter RAM_DEPTH           = 64,                  // data memory size in words (power of 2)
     parameter RAM_ADDRESS         = $clog2(RAM_DEPTH),
     parameter IM_ROWS             = 1024,                // instruction memory size in words (power of 2)
     parameter HEX_FILE            = "instructions.hex",  // program (can be overridden with +HEX=<file>)
-    parameter RESET_PC            = 32'h0                // address of the first instruction
+    parameter RESET_PC            = 32'h0,               // address of the first instruction
+    parameter USE_DSP_MUL         = 1,                   // 1: pipelined multiplier (FPGA DSP), 0: radix-4 Booth (ASIC)
+    parameter DMEM_DUAL_PORT      = 0                    // 1: second data memory port (loads read while a store is written)
 ) (
     input logic CLK,
-    input logic reset
+    input logic reset,
+
+    // Observation ports (also keep the logic from being optimized away in synthesis)
+    output logic              commit_valid1, commit_valid2,   // instructions committed in this cycle
+    output logic              mem_write,                      // committed store written to the data memory
+    output logic [XLEN-1:0]   mem_write_address,
+    output logic [XLEN-1:0]   mem_write_data,
+    output logic [1:0]        mem_write_size                  // 0: byte, 1: halfword, 2: word
 );
 
     // ============================================================================
@@ -172,6 +183,8 @@ module main_datapath #(
     logic lsq_mem_write, lsq_mem_read;
     logic [XLEN-1:0] lsq_memory_address, lsq_mem_write_data;
     logic [1:0] lsq_mem_size;
+    logic [XLEN-1:0] lsq_load_address;
+    logic [1:0] lsq_load_size;
     logic lsq_mem_sign_ext;
     logic lsq_write_prf;
     logic [XLEN-1:0] lsq_write_prf_data;
@@ -224,6 +237,8 @@ module main_datapath #(
     logic [ROB_PTR_SIZE-1:0] cdb_branch_rob_index;
     logic cdb_branch_resolved, cdb_branch_correct;
     logic ex_actual_taken, update_pht, ex_is_branch, ex_btb_update, ex_btb_slot;
+    logic train_pht, train_taken;                      // PHT training with a committed conditional branch (BIQ)
+    logic [PHT_ADDRESS-1:0] train_pht_index;
     logic [XLEN-1:0] ex_actual_target_address, ex_redirect_pc, ex_fetch_pc;
 
     logic ex_alu1_valid, ex_alu1_regwrite;
@@ -268,6 +283,13 @@ module main_datapath #(
     logic comm_free_push1, comm_free_push2;
     logic [PRF_ADDRESS-1:0] comm_free_reg1, comm_free_reg2;
 
+    assign commit_valid1     = commit_instr1;
+    assign commit_valid2     = commit_instr2;
+    assign mem_write         = lsq_mem_write;
+    assign mem_write_address = lsq_memory_address;
+    assign mem_write_data    = lsq_mem_write_data;
+    assign mem_write_size    = lsq_mem_size;
+
     // ============================================================================
     // MODULE INSTANTIATIONS
     // ============================================================================
@@ -277,6 +299,8 @@ module main_datapath #(
         .GHR_SIZE    (GHR_SIZE),
         .XLEN        (XLEN),
         .RAS_ADDRESS (RAS_ADDRESS),
+        .BTB_ROWS    (BTB_ROWS),
+        .BTB_WAYS    (BTB_WAYS),
         .RESET_PC    (RESET_PC)
     ) pd_stage_inst (
         .CLK                      (CLK),
@@ -286,7 +310,6 @@ module main_datapath #(
         .rob_global_flush         (rob_global_flush),
 
         .ex_actual_taken          (ex_actual_taken),
-        .update_pht               (update_pht),
         .ex_is_branch             (ex_is_branch),
         .ex_btb_update            (ex_btb_update),
         .ex_btb_slot              (ex_btb_slot),
@@ -294,7 +317,9 @@ module main_datapath #(
         .ex_redirect_pc           (ex_redirect_pc),
         .ex_fetch_pc              (ex_fetch_pc),
         .ghr_snap                 (id_biq_restore_ghr),
-        .rb_pht_index             (id_biq_pht_index),
+        .train_pht                (train_pht),
+        .train_taken              (train_taken),
+        .train_pht_index          (train_pht_index),
         .rb_sp_snap               (id_biq_sp_snap),
         .rb_ras_snap              (id_biq_ras_snap),
         .rob_flush_pc             (rob_flush_pc),
@@ -385,6 +410,8 @@ module main_datapath #(
         .biq_dealloc         (dis_biq_dealloc),
         .iss_biq_id          (iss_biq_id),
         .ex_biq_id           (ex_biq_id),
+        .ex_resolve_cond     (update_pht),
+        .ex_actual_taken     (ex_actual_taken),
         .if_valid1           (if_valid1),
         .if_valid2           (fin_valid2),
         .fin_pred_taken      (fin_pred_taken),
@@ -419,6 +446,9 @@ module main_datapath #(
         .id_pc               (id_pc),
         .id_biq_restore_ghr  (id_biq_restore_ghr),
         .id_biq_pht_index    (id_biq_pht_index),
+        .train_pht           (train_pht),
+        .train_taken         (train_taken),
+        .train_pht_index     (train_pht_index),
         .id_alu_operation1   (id_alu_operation1),
         .id_alu_operation2   (id_alu_operation2),
         .id_is_m_extension1  (id_is_m_extension1),
@@ -551,7 +581,8 @@ module main_datapath #(
         .SQ_ENTRIES          (SQ_ENTRIES),
         .SQ_ADDRESS          (SQ_ADDRESS),
         .IQ_ROWS             (IQ_ROWS),
-        .MEM_INDEX_SIZE      (MEM_INDEX_SIZE)
+        .MEM_INDEX_SIZE      (MEM_INDEX_SIZE),
+        .DMEM_DUAL_PORT      (DMEM_DUAL_PORT)
     ) dis_stage_inst (
         .CLK                 (CLK),
         .reset               (reset),
@@ -639,6 +670,8 @@ module main_datapath #(
         .lsq_memory_address    (lsq_memory_address),
         .lsq_mem_write_data    (lsq_mem_write_data),
         .lsq_mem_size          (lsq_mem_size),
+        .lsq_load_address      (lsq_load_address),
+        .lsq_load_size         (lsq_load_size),
         .lsq_mem_sign_ext      (lsq_mem_sign_ext),
         .lsq_write_prf         (lsq_write_prf),
         .lsq_write_prf_data    (lsq_write_prf_data),
@@ -738,7 +771,8 @@ module main_datapath #(
         .MAX_BRANCHES   (MAX_BRANCHES),
         .BTAG_SIZE      (BTAG_SIZE),
         .BIQ_ADDRESS    (BIQ_ADDRESS),
-        .MEM_INDEX_SIZE (MEM_INDEX_SIZE)
+        .MEM_INDEX_SIZE (MEM_INDEX_SIZE),
+        .USE_DSP_MUL    (USE_DSP_MUL)
     ) ex_stage_inst (
         .CLK               (CLK),
         .reset             (reset),
@@ -833,6 +867,8 @@ module main_datapath #(
         .lsq_memory_address (lsq_memory_address),
         .lsq_mem_write_data (lsq_mem_write_data),
         .lsq_mem_size       (lsq_mem_size),
+        .lsq_load_address   (lsq_load_address),
+        .lsq_load_size      (lsq_load_size),
         .lsq_mem_sign_ext   (lsq_mem_sign_ext),
         .lsq_lq_index       (lsq_lq_index),
 
@@ -846,6 +882,8 @@ module main_datapath #(
         .PRF_ADDRESS  (PRF_ADDRESS),
         .ROB_PTR_SIZE (ROB_PTR_SIZE)
     ) cdb_arbiter_inst (
+        .CLK            (CLK),
+        .reset          (reset),
         .alu1_valid     (ex_alu1_valid),
         .alu1_result    (ex_alu1_result),
         .alu1_prd       (ex_alu1_prd),

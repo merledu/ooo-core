@@ -3,14 +3,18 @@ module PD_Stage #(
     parameter GHR_SIZE = 9,
     parameter XLEN = 32,
     parameter RAS_ADDRESS = 3,
+    parameter BTB_ROWS = 64,
+    parameter BTB_WAYS = 2,
     parameter RESET_PC = 32'h0
 )(
     input logic CLK, reset, stall_frontend, flush, rob_global_flush,
     //branch resolution from EX stage
-    input logic ex_actual_taken, update_pht, ex_is_branch, ex_btb_update, ex_btb_slot,
+    input logic ex_actual_taken, ex_is_branch, ex_btb_update, ex_btb_slot,
     input logic [XLEN-1:0] ex_actual_target_address, ex_redirect_pc, ex_fetch_pc,
     input logic [GHR_SIZE-1:0] ghr_snap,
-    input logic [PHT_ADDRESS-1:0] rb_pht_index,
+    //PHT training with a committed conditional branch (from the BIQ)
+    input logic train_pht, train_taken,
+    input logic [PHT_ADDRESS-1:0] train_pht_index,
     input logic [RAS_ADDRESS-1:0] rb_sp_snap,
     input logic [2*XLEN-1:0] rb_ras_snap,
     input logic [XLEN-3:0] rob_flush_pc,
@@ -176,15 +180,17 @@ module PD_Stage #(
         .CLK                (CLK),
         .reset              (reset),
         .read_en            (read_en),
-        .ex_actual_taken    (ex_actual_taken),
-        .update_pht         (update_pht),
+        .ex_actual_taken    (train_taken),
+        .update_pht         (train_pht),
         .pht_index          (pht_index),
-        .rb_pht_index       (rb_pht_index),
+        .rb_pht_index       (train_pht_index),
         //outputs
         .pred_taken         (pred_taken)
     );
 
     BTB #(
+        .BTB_ROWS                (BTB_ROWS),
+        .BTB_WAYS                (BTB_WAYS),
         .XLEN                    (XLEN)
     ) btb_instantiation (
         //inputs

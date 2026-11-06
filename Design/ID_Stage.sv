@@ -15,6 +15,7 @@ module ID_Stage #(
     input logic [XLEN-1:0] if_instr1, if_instr2, fin_pred_target, 
     input logic [XLEN-3:0] if_pc,
     input logic [BIQ_ADDRESS-1:0] iss_biq_id, ex_biq_id,
+    input logic ex_resolve_cond, ex_actual_taken,  //conditional branch resolved in EX stage (entry ex_biq_id)
     input logic [PHT_ADDRESS-1:0] if_pht_index,
     input logic [RAS_ADDRESS-1:0] fin_sp_snap1, fin_sp_snap2,
     input logic [2*XLEN-1:0] fin_ras_snap1, fin_ras_snap2,
@@ -31,6 +32,8 @@ module ID_Stage #(
     output logic [XLEN-3:0] id_pc,
     output logic [GHR_SIZE-1:0] id_biq_restore_ghr,
     output logic [PHT_ADDRESS-1:0] id_biq_pht_index,
+    output logic train_pht, train_taken,         //PHT training with a committed conditional branch
+    output logic [PHT_ADDRESS-1:0] train_pht_index,
     output logic [4:0] id_alu_operation1, id_alu_operation2,
     output logic id_is_m_extension1, id_is_m_extension2,
     output logic id_jump_reg1, id_jump_reg2, id_jump1, id_jump2, id_branch1, id_branch2, id_regsrc1_1,  
@@ -248,6 +251,8 @@ module ID_Stage #(
         .prev_ghr        (if_prev_ghr),
         .sp_snap         ((cf_slot) ? fin_sp_snap2 : fin_sp_snap1),
         .ras_snap        ((cf_slot) ? fin_ras_snap2 : fin_ras_snap1),
+        .resolve_cond    (ex_resolve_cond),
+        .resolve_taken   (ex_actual_taken),
         
         // Outputs (to rename stage)
         .biq_address     (biq_address),
@@ -260,6 +265,9 @@ module ID_Stage #(
         //for prediction stage
         .biq_restore_ghr (id_biq_restore_ghr),
         .biq_pht_index   (id_biq_pht_index),
+        .train_pht       (train_pht),
+        .train_taken     (train_taken),
+        .train_pht_index (train_pht_index),
         .biq_sp_snap     (id_biq_sp_snap),
         .biq_ras_snap    (id_biq_ras_snap)
     );

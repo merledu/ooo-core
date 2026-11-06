@@ -12,6 +12,11 @@ module IM #(
     
     (* ram_style = "block" *) logic [XLEN-1:0] IM [0:MEM_ROWS-1];
 
+`ifdef SYNTHESIS
+    initial begin   
+        $readmemh(HEX_FILE, IM);
+    end
+`else
     initial begin   
         string hex_file;
         for (int i = 0; i < MEM_ROWS; i++) begin
@@ -23,6 +28,7 @@ module IM #(
         end
         $readmemh(hex_file, IM);
     end
+`endif
 
     always_ff @(posedge CLK) begin
         if (read_en) begin

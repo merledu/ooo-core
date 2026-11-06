@@ -14,6 +14,8 @@ module BIQ #(
     input logic [GHR_SIZE-1:0] prev_ghr,
     input logic [RAS_ADDRESS-1:0] sp_snap,
     input logic [2*XLEN-1:0] ras_snap,
+    //conditional branch resolved in EX stage (its entry is flush_biq_id): outcome kept until the branch commits
+    input logic resolve_cond, resolve_taken,
 
     output logic biq_pred_taken, biq_slot, biq_is_ret, biq_full, 
     output logic [BIQ_ADDRESS-1:0] biq_address,
@@ -21,7 +23,10 @@ module BIQ #(
     output logic [GHR_SIZE-1:0] biq_restore_ghr, 
     output logic [RAS_ADDRESS-1:0] biq_sp_snap,
     output logic [2*XLEN-1:0] biq_ras_snap,
-    output logic [PHT_ADDRESS-1:0] biq_pht_index
+    output logic [PHT_ADDRESS-1:0] biq_pht_index,
+    //PHT training with a committed conditional branch (wrong path branches never train the PHT)
+    output logic train_pht, train_taken,
+    output logic [PHT_ADDRESS-1:0] train_pht_index
 );
 
     typedef struct packed {
@@ -40,8 +45,12 @@ module BIQ #(
     logic [BIQ_ADDRESS:0] biq_head_ptr, biq_tail_ptr, biq_next_head_ptr;
     logic flush_wrap_bit;
 
+    //committed entries are freed after they trained the PHT (one per cycle): train_ptr follows biq_head_ptr
+    logic [BIQ_ADDRESS:0] train_ptr;
+    logic [(1<<BIQ_ADDRESS)-1:0] resolved_cond, resolved_taken;
+
     assign biq_read_address  = biq_id;
-    assign biq_full          = (biq_head_ptr[BIQ_ADDRESS-1:0] == biq_tail_ptr[BIQ_ADDRESS-1:0]) && (biq_head_ptr[BIQ_ADDRESS]!= biq_tail_ptr[BIQ_ADDRESS]);
+    assign biq_full          = (train_ptr[BIQ_ADDRESS-1:0] == biq_tail_ptr[BIQ_ADDRESS-1:0]) && (train_ptr[BIQ_ADDRESS]!= biq_tail_ptr[BIQ_ADDRESS]);
     assign biq_address       = biq_tail_ptr[BIQ_ADDRESS-1:0];
     assign biq_next_head_ptr = biq_head_ptr + {{(BIQ_ADDRESS-1){1'b0}}, biq_dealloc};
     //wrap bit of the mispredicted branch's entry (it lies between head and tail)
@@ -52,10 +61,18 @@ module BIQ #(
         if (reset) begin
             biq_head_ptr <= 0;
             biq_tail_ptr <= 0;
+            train_ptr    <= 0;
         end
         else begin
             //entries are freed in order when their branch commits
             biq_head_ptr <= biq_next_head_ptr;
+            if (train_ptr != biq_head_ptr) train_ptr <= train_ptr + 1;
+
+            //outcome of a conditional branch (a new entry starts as not resolved)
+            if (resolve_cond) begin
+                resolved_cond[flush_biq_id]  <= 1'b1;
+                resolved_taken[flush_biq_id] <= resolve_taken;
+            end
 
             if (rob_global_flush) begin
                 //every remaining entry belongs to a squashed branch
@@ -74,11 +91,16 @@ module BIQ #(
                 BIQ[biq_address].previous_ghr     <= prev_ghr;
                 BIQ[biq_address].ras_snapshot     <= ras_snap;
                 BIQ[biq_address].sp_snapshot      <= sp_snap;
+                resolved_cond[biq_address]        <= 1'b0;
                 biq_tail_ptr <= biq_tail_ptr + 1;
             end
         end
     end    
     
+    assign train_pht       = (train_ptr != biq_head_ptr) && resolved_cond[train_ptr[BIQ_ADDRESS-1:0]];
+    assign train_taken     = resolved_taken[train_ptr[BIQ_ADDRESS-1:0]];
+    assign train_pht_index = BIQ[train_ptr[BIQ_ADDRESS-1:0]].pht_table_index;
+
     // reading from biq (while the branch reads its registers, so the data is there in EX stage)   
     always_ff @(posedge CLK) begin
         biq_pred_taken  <= BIQ[biq_read_address].predicted_taken;
