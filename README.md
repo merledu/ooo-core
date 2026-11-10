@@ -1,6 +1,6 @@
 # ooo-core
 
-A **2-wide out-of-order RISC-V processor** (RV32IM), written in SystemVerilog.
+A **2-wide, 12-stage out-of-order RISC-V processor** (RV32IM), written in SystemVerilog.
 
 It runs two instructions per clock, executes them out of order, and finishes them in program order.
 Every instruction it commits is checked against Spike, the official RISC-V simulator.
@@ -11,6 +11,8 @@ Every instruction it commits is checked against Spike, the official RISC-V simul
 
 ## Features
 
+- **12-stage pipeline**: each instruction uses only the stages it needs; an ALU instruction
+  takes 8 cycles from fetch to commit, a load 11 ([pipeline depth](#pipeline-depth)).
 - **2-wide superscalar**: fetches, renames and commits two instructions per clock.
 - **Fast branch recovery**: up to 8 branches in flight, each with a saved copy of the rename table.
   A wrong prediction removes only the instructions after that branch.
@@ -31,6 +33,34 @@ Every instruction it commits is checked against Spike, the official RISC-V simul
 4. **Dispatch and issue**: instructions wait in an issue queue and start as soon as their inputs are ready.
 5. **Execute and memory**: results go out on a shared result bus; loads and stores go through a load/store queue.
 6. **Commit**: the reorder buffer finishes up to two instructions per clock, in program order.
+
+### Pipeline depth
+
+The pipeline has 12 stages:
+
+```
+predict → fetch → decode → rename → dispatch → issue → register read → execute → LSQ → memory → writeback → commit
+```
+
+Not every instruction goes through all of them, and some stages share a clock cycle
+(rename and dispatch always; execute and writeback for ALU results). So the number of cycles
+depends on the instruction:
+
+| Instruction | Stages it goes through | Cycles from fetch to commit |
+|---|---|---|
+| ALU, branch, jump | all except LSQ and memory | **8** |
+| Store | all 12; the memory is written 1 cycle after commit | **8** |
+| Load | all 12 | **11** |
+| `mul` (FPGA, DSP multiplier) | all except LSQ and memory; execute takes 3 more cycles | **11** |
+| `mul` (ASIC, Booth multiplier) | all except LSQ and memory; execute takes 18 more cycles | **26** |
+| `div`, `rem` | all except LSQ and memory; execute takes 18 more cycles | **26** |
+
+A mispredicted branch is found in execute (cycle 7) and fetch restarts at the right address in the
+next cycle, so a misprediction costs 6 cycles.
+
+These are the shortest times, with no waiting. An instruction can also wait in the issue queue for its
+inputs, for a free result bus lane, or in the reorder buffer for older instructions to commit.
+Measured in simulation (`+DEBUG` trace of `sim/core/tb_core.sv`), ideal one-cycle memories.
 
 More detail: [architecture](docs/spec/architecture.md) · [design decisions](docs/decisions/) · [measured results](docs/scorecard.md)
 
