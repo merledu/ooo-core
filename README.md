@@ -91,4 +91,4 @@ a pull request into `main`, and a review before merging.
 
 | Name | Role | GitHub |
 |---|---|---|
-| Mutahir Ahmed Siddiqui | Research Fellow @ Micro Electronics Research Lab - UITU | [@HafizMutahirAhmed](https:github.com/HafizMutahirAhmed) |
+| Mutahir Ahmed Siddiqui | Research Fellow @ Micro Electronics Research Lab - UITU | [@HafizMutahirAhmed](https://github.com/HafizMutahirAhmed) |
