@@ -86,7 +86,7 @@ it is written to `sim/riscof/riscof_work/report.html`.
 |---|---|---|
 | All 12 pipeline stages, verified against Spike | Timing closure on Artix-7 (xc7a100t-1) | Running on the FPGA, CSRs and traps, caches, Linux |
 
-Versions and plans: [`docs/git-workflow.md`](docs/git-workflow.md) · changes: [`CHANGELOG.md`](CHANGELOG.md)
+Versions and plans: [`docs/roadmap.md`](docs/roadmap.md) · changes: [`CHANGELOG.md`](CHANGELOG.md)
 
 ## Quick start
 

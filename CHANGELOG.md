@@ -2,9 +2,14 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/) (`v0.x` until the core boots Linux on the board).
-The plan for the next versions is in [`docs/git-workflow.md`](docs/git-workflow.md#versions-tags-and-releases).
+The plan for the next versions is in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## [Unreleased]
+
+### Added
+- Roadmap from `v0.3.0` to Linux (`docs/roadmap.md`) and decision 0007: 150 MHz on the xc7a100t-1 and more
+  than 5 CoreMark/MHz, frequency and area first, then IPC. An IPC version (`v0.4.0`) is added, so CSRs, caches
+  and the board move to `v0.5.0`-`v0.7.0`, with `v0.8.0` (Linux ISA) and `v0.9.0` (platform) before `v1.0.0`.
 
 ### Changed
 - Dhrystone is built with GCC builtins on, as in riscv-tests (was `-ffreestanding -fno-builtin`, which sent every

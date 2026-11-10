@@ -14,3 +14,4 @@ New decision: copy [`0000-template.md`](0000-template.md) to the next number.
 | [0004](0004-single-port-data-memory.md) | One data memory port by default | accepted |
 | [0005](0005-free-list-committed-head.md) | Free list recovery by following the committed head | accepted |
 | [0006](0006-verify-against-spike.md) | Verify the whole core against Spike, instruction by instruction | accepted |
+| [0007](0007-performance-targets.md) | 150 MHz on the xc7a100t-1 and more than 5 CoreMark/MHz, frequency first | accepted |
