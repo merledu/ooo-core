@@ -1,0 +1,21 @@
+# ── Simulation output ────────────────────────────────────────
+sim/build/
+obj_dir/
+*.vcd
+*.fst
+*.wlf
+__pycache__/
+sim/riscof/riscof_work/
+riscof_run.log
+
+# ── Vivado ───────────────────────────────────────────────────
+fpga/build/
+.Xil/
+*.jou
+*.dcp
+vivado*.log
+vivado*.str
+usage_statistics_webtalk.*
+
+# ── Large documents: shared outside git ──────────────────────
+docs/slides/

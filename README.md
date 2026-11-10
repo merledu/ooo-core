@@ -1,115 +1,94 @@
-# RV32IM Dual-Issue Out-of-Order Processor
+# ooo-core
 
-## Overview
+A **2-wide out-of-order RISC-V processor** (RV32IM), written in SystemVerilog.
 
-This project implements a **dual-issue out-of-order RV32IM processor** in **SystemVerilog**. The processor exploits instruction-level parallelism through dynamic scheduling, register renaming, speculative execution, and in-order retirement.
+It runs two instructions per clock, executes them out of order, and finishes them in program order.
+Every instruction it commits is checked against Spike, the official RISC-V simulator.
 
-The microarchitecture is organized as a **12-stage pipeline**:
+![ooo-core datapath](docs/images/ooo_core_datapath.png)
 
-1. Prediction
-2. Fetch
-3. Decode
-4. Rename
-5. Dispatch
-6. Issue
-7. Register Read
-8. Execute
-9. LSQ
-10. Memory
-11. Writeback
-12. Commit
+<sub>Editable diagram: [`docs/diagrams/ooo_core_datapath.drawio`](docs/diagrams/ooo_core_datapath.drawio) (open in draw.io)</sub>
 
----
-## Architecture Diagram
+## Features
 
-![Processor Architecture](Documentation/processor_architecture.png)
----
+- **2-wide superscalar**: fetches, renames and commits two instructions per clock.
+- **Fast branch recovery**: up to 8 branches in flight, each with a saved copy of the rename table.
+  A wrong prediction removes only the instructions after that branch.
+- **Speculative loads**: loads can run before older stores. Data is forwarded from the store queue
+  byte by byte, and the core recovers if a load ran too early.
+- **Many execution units**: two ALUs, two address units, a pipelined multiplier and a divider.
+- **Branch prediction**: gshare, 2-way BTB and return address stack, repaired after every wrong prediction.
+- **Configurable**: queue sizes, branch count and predictor sizes are parameters;
+  FPGA (DSP) or ASIC (Booth) multiplier.
+- **Verified against Spike**: every instruction and memory write, in three configurations;
+  RISCOF RV32I + RV32M 47/47.
 
-## Key Features
+## How it works
 
-- RV32IM ISA support
-- Dual-issue superscalar front-end
-- Out-of-order execution
-- Register renaming
-- Dynamic instruction scheduling
-- Branch prediction
-- Load Store Queue (LSQ)
-- Reorder Buffer (ROB)
-- Speculative execution
-- In-order commit
-- Modular SystemVerilog implementation
+1. **Predict and fetch**: the predictor picks the next two instructions to fetch.
+2. **Decode**: instructions are decoded; branches are recorded so the predictor learns from them later.
+3. **Rename**: 32 registers are mapped onto 64 physical registers, so independent instructions don't wait.
+4. **Dispatch and issue**: instructions wait in an issue queue and start as soon as their inputs are ready.
+5. **Execute and memory**: results go out on a shared result bus; loads and stores go through a load/store queue.
+6. **Commit**: the reorder buffer finishes up to two instructions per clock, in program order.
 
----
+More detail: [architecture](docs/spec/architecture.md) · [design decisions](docs/decisions/) · [measured results](docs/scorecard.md)
 
-## Pipeline Stages
+## Results
 
-### 1. Prediction
-Generates the next program counter using branch prediction structures and speculative control-flow information.
+| | |
+|---|---|
+| ISA | RV32IM (no CSRs or traps yet) |
+| CoreMark | **3.53 CoreMark/MHz** |
+| Dhrystone | **1.30 DMIPS/MHz** |
+| Correctness | matches Spike on 111 test programs, CoreMark and Dhrystone; RISCOF 47/47 |
 
-### 2. Fetch
-Fetches up to two instructions per cycle from instruction memory.
+Measured in simulation with ideal one-cycle memories.
 
-### 3. Decode
-Decodes fetched instructions and extracts source/destination operands and control information.
+RISCOF report (all 47 RV32I + RV32M tests passed): `report.html` in the
+[v0.2.0 release](https://github.com/merledu/ooo-core/releases/tag/v0.2.0).
+To make it yourself, see [RISC-V architectural tests](sim/README.md#risc-v-architectural-tests-riscof);
+it is written to `sim/riscof/riscof_work/report.html`.
 
-### 4. Rename
-Maps architectural registers to physical registers, eliminating WAR and WAW hazards.
+## Status
 
-### 5. Dispatch
-Allocates resources such as ROB entries, issue queue entries, and LSQ entries.
+| Done | In progress | Planned |
+|---|---|---|
+| All 12 pipeline stages, verified against Spike | Timing closure on Artix-7 (xc7a100t-1) | Running on the FPGA, CSRs and traps, caches, Linux |
 
-### 6. Issue
-Selects ready instructions for execution based on operand availability and functional unit readiness.
+Versions and plans: [`docs/git-workflow.md`](docs/git-workflow.md) · changes: [`CHANGELOG.md`](CHANGELOG.md)
 
-### 7. Register Read
-Reads source operands from the physical register file or receives forwarded values.
+## Quick start
 
-### 8. Execute
-Performs ALU operations, branch evaluation, multiplication/division, and address generation.
+You need Verilator 5, `riscv32-unknown-elf-gcc`, Spike and Python 3 (Vivado for the FPGA).
 
-### 9. LSQ
-Handles memory dependency tracking and load/store ordering.
+```bash
+sim/scripts/run_all.sh          # unit tests + the core against Spike
+sim/scripts/run_all.sh --full   # also all configurations, CoreMark and Dhrystone
+sim/bench/run_bench.py          # benchmarks only
+cd fpga && vivado -mode batch -source synth.tcl   # synthesis + place and route
+```
 
-### 10. Memory
-Accesses data memory for load and store operations.
+More options: [`sim/README.md`](sim/README.md)
 
-### 11. Writeback
-Broadcasts execution results and updates destination physical registers.
+## Repository
 
-### 12. Commit
-Retires instructions in program order and updates architectural state.
+| Folder | Contents |
+|---|---|
+| `rtl/` | the processor, one folder per pipeline section (`rtl/rtl.f` lists every file) |
+| `sim/` | testbenches, Spike comparison, RISCOF, benchmarks |
+| `fpga/` | Vivado scripts for the Artix-7 |
+| `docs/` | architecture, design decisions, results |
 
----
+Full map: [`STRUCTURE.md`](STRUCTURE.md)
 
-## Out-of-Order Execution
+## Contributing
 
-The processor supports out-of-order execution using:
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first. In short: one issue per task, one branch per issue,
+a pull request into `main`, and a review before merging.
 
-- Register Alias Table (RAT)
-- Physical Register File (PRF)
-- Reorder Buffer (ROB)
-- Issue Queue / Reservation Stations
-- Load Store Queue (LSQ)
+## Team
 
-Instructions may execute as soon as their operands become available, regardless of original program order. Correct architectural state is preserved through in-order commit.
-
----
-
-## Branch Prediction
-
-The prediction stage supports speculative execution to reduce branch penalties.
-
-Possible components include:
-
-- Branch Target Buffer (BTB)
-- Pattern History Table (PHT)
-- Return Address Stack (RAS)
-
-
----
-
-## Author
-
-Mutahir Ahmed Siddiqui
-
----
+| Name | Role | GitHub |
+|---|---|---|
+| Mutahir Ahmed Siddiqui | Research Fellow @ Micro Electronics Research Lab - UITU | @HafizMutahirAhmed |

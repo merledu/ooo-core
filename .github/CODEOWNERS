@@ -1,0 +1,5 @@
+# Every PR automatically asks these people for a review.
+# The author cannot approve their own PR.
+# Add per-folder owners once tasks are assigned, e.g.
+#   /rtl/memory/   @someone
+*   @HafizMutahirAhmed
