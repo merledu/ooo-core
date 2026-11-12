@@ -21,7 +21,10 @@ import run as R   # noqa: E402
 BUILD = os.path.join(HERE, "..", "build", "bench")
 SRC = os.path.join(BUILD, "src")
 CC = ["riscv32-unknown-elf-gcc", "-march=rv32im", "-mabi=ilp32", "-O2", "-static", "-nostdlib", "-nostartfiles",
-      "-ffreestanding", "-fno-builtin", "-T", os.path.join(HERE, "..", "core", "link.ld")]
+      "-T", os.path.join(HERE, "..", "core", "link.ld")]
+# CoreMark keeps the freestanding build. Dhrystone is built with GCC builtins enabled, as in riscv-tests:
+# strcpy of a constant string becomes word copies instead of a call to the byte loop of dhrystone_port/port.c.
+CC_COREMARK = CC + ["-ffreestanding", "-fno-builtin"]
 CRT0 = os.path.join(HERE, "..", "core", "crt0.S")
 
 
@@ -52,7 +55,7 @@ def build(name, iterations):
         cm = os.path.join(SRC, "coremark")
         port = os.path.join(HERE, "coremark_port")
         srcs = [os.path.join(cm, f) for f in ("core_list_join.c", "core_main.c", "core_matrix.c", "core_state.c", "core_util.c")]
-        cmd = CC + ["-I", port, "-I", cm, "-DITERATIONS=%d" % iterations, "-DPERFORMANCE_RUN=1", '-DFLAGS_STR="-O2"',
+        cmd = CC_COREMARK + ["-I", port, "-I", cm, "-DITERATIONS=%d" % iterations, "-DPERFORMANCE_RUN=1", '-DFLAGS_STR="-O2"',
                     CRT0, os.path.join(port, "core_portme.c")] + srcs
     else:
         port = os.path.join(HERE, "dhrystone_port")
@@ -113,7 +116,8 @@ def run(name, iterations, check):
     if start is None or stop is None or exit_code != 0:
         sys.exit("%s did not finish correctly (start=%s stop=%s exit code=%s) %s" % (name, start, stop, exit_code, total))
     cycles = stop - start
-    print("\n%s (%d iterations, -O2, rv32im)" % (name, iterations))
+    print("\n%s (%d iterations, -O2, rv32im%s)" % (name, iterations,
+                                                  ", -ffreestanding -fno-builtin" if name == "coremark" else ", builtins on"))
     print("    timed part            : %d cycles, %d instructions" % (cycles, instr))
     print("    IPC                   : %.3f" % (instr / cycles))
     print("    cycles per iteration  : %.0f   (instructions per iteration: %.0f)" % (cycles / iterations, instr / iterations))

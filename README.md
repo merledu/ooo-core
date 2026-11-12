@@ -40,7 +40,7 @@ More detail: [architecture](docs/spec/architecture.md) · [design decisions](doc
 |---|---|
 | ISA | RV32IM (no CSRs or traps yet) |
 | CoreMark | **3.53 CoreMark/MHz** |
-| Dhrystone | **1.30 DMIPS/MHz** |
+| Dhrystone | **1.70 DMIPS/MHz** |
 | Correctness | matches Spike on 111 test programs, CoreMark and Dhrystone; RISCOF 47/47 |
 
 Measured in simulation with ideal one-cycle memories.

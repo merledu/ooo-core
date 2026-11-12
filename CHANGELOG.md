@@ -6,6 +6,10 @@ The plan for the next versions is in [`docs/git-workflow.md`](docs/git-workflow.
 
 ## [Unreleased]
 
+### Changed
+- Dhrystone is built with GCC builtins on, as in riscv-tests (was `-ffreestanding -fno-builtin`, which sent every
+  `strcpy` to a byte loop: 52 % of the timed instructions). 1.30 → 1.70 DMIPS/MHz, core unchanged.
+
 ## [0.2.0] - 2026-11-07
 
 The core matches Spike on every test, and the repository is set up for the team.
