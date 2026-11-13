@@ -5,9 +5,9 @@
 It runs two instructions per clock, executes them out of order, and finishes them in program order.
 Every instruction it commits is checked against Spike, the official RISC-V simulator.
 
-![FissionRV datapath](docs/images/ooo_core_datapath.png)
+![FissionRV block diagram](docs/images/ooo_core_block.png)
 
-<sub>Editable diagram: [`docs/diagrams/ooo_core_datapath.drawio`](docs/diagrams/ooo_core_datapath.drawio) (open in draw.io)</sub>
+<sub>Editable diagrams (open in draw.io): [`ooo_core_block.drawio`](docs/diagrams/ooo_core_block.drawio) (overview) · [`ooo_core_datapath.drawio`](docs/diagrams/ooo_core_datapath.drawio) (detailed datapath, shown in [architecture](docs/spec/architecture.md))</sub>
 
 ## Features
 
