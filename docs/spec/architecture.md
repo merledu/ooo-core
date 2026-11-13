@@ -1,6 +1,6 @@
 # Architecture
 
-![ooo-core datapath](../images/ooo_core_datapath.png)
+![FissionRV datapath](../images/ooo_core_datapath.png)
 
 Editable source: [`../diagrams/ooo_core_datapath.drawio`](../diagrams/ooo_core_datapath.drawio). Previous diagram: [`../images/processor_architecture.png`](../images/processor_architecture.png).
 

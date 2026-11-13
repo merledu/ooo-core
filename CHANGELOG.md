@@ -57,6 +57,6 @@ The core matches Spike on every test, and the repository is set up for the team.
 All 12 pipeline stages in RTL, merged stage by stage (PRs #1 to #6): prediction, fetch, decode, rename,
 dispatch, issue, register read, execute, LSQ, memory, writeback, commit.
 
-[Unreleased]: https://github.com/merledu/ooo-core/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/merledu/ooo-core/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/merledu/ooo-core/releases/tag/v0.1.0
+[Unreleased]: https://github.com/merledu/FissionRV/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/merledu/FissionRV/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/merledu/FissionRV/releases/tag/v0.1.0

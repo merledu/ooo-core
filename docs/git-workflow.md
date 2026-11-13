@@ -12,8 +12,8 @@ main                     protected: nobody pushes to it directly
 ## One-time setup
 
 ```bash
-git clone https://github.com/merledu/ooo-core.git
-cd ooo-core
+git clone https://github.com/merledu/FissionRV.git
+cd FissionRV
 git config user.name  "Your Name"
 git config user.email "you@example.com"
 pip install pre-commit && pre-commit install

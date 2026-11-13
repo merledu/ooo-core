@@ -1,11 +1,11 @@
-# ooo-core
+# FissionRV
 
-A **2-wide, 12-stage out-of-order RISC-V processor** (RV32IM), written in SystemVerilog.
+**FissionRV** is a **2-wide, 12-stage out-of-order RISC-V processor** (RV32IM), written in SystemVerilog.
 
 It runs two instructions per clock, executes them out of order, and finishes them in program order.
 Every instruction it commits is checked against Spike, the official RISC-V simulator.
 
-![ooo-core datapath](docs/images/ooo_core_datapath.png)
+![FissionRV datapath](docs/images/ooo_core_datapath.png)
 
 <sub>Editable diagram: [`docs/diagrams/ooo_core_datapath.drawio`](docs/diagrams/ooo_core_datapath.drawio) (open in draw.io)</sub>
 
@@ -76,7 +76,7 @@ More detail: [architecture](docs/spec/architecture.md) · [design decisions](doc
 Measured in simulation with ideal one-cycle memories.
 
 RISCOF report (all 47 RV32I + RV32M tests passed): `report.html` in the
-[v0.2.0 release](https://github.com/merledu/ooo-core/releases/tag/v0.2.0).
+[v0.2.0 release](https://github.com/merledu/FissionRV/releases/tag/v0.2.0).
 To make it yourself, see [RISC-V architectural tests](sim/README.md#risc-v-architectural-tests-riscof);
 it is written to `sim/riscof/riscof_work/report.html`.
 
