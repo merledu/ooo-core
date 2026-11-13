@@ -2,9 +2,18 @@
 
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/) (`v0.x` until the core boots Linux on the board).
-The plan for the next versions is in [`docs/git-workflow.md`](docs/git-workflow.md#versions-tags-and-releases).
+The plan for the next versions is in [`docs/roadmap.md`](docs/roadmap.md).
 
 ## [Unreleased]
+
+### Added
+- Roadmap from `v0.3.0` to Linux (`docs/roadmap.md`) and decision 0007: 150 MHz on the xc7a100t-1 and more
+  than 5 CoreMark/MHz, frequency and area first, then IPC. An IPC version (`v0.4.0`) is added, so CSRs, caches
+  and the board move to `v0.5.0`-`v0.7.0`, with `v0.8.0` (Linux ISA) and `v0.9.0` (platform) before `v1.0.0`.
+
+### Changed
+- Dhrystone is built with GCC builtins on, as in riscv-tests (was `-ffreestanding -fno-builtin`, which sent every
+  `strcpy` to a byte loop: 52 % of the timed instructions). 1.30 → 1.70 DMIPS/MHz, core unchanged.
 
 ## [0.2.0] - 2026-11-07
 
@@ -48,6 +57,6 @@ The core matches Spike on every test, and the repository is set up for the team.
 All 12 pipeline stages in RTL, merged stage by stage (PRs #1 to #6): prediction, fetch, decode, rename,
 dispatch, issue, register read, execute, LSQ, memory, writeback, commit.
 
-[Unreleased]: https://github.com/merledu/ooo-core/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/merledu/ooo-core/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/merledu/ooo-core/releases/tag/v0.1.0
+[Unreleased]: https://github.com/merledu/FissionRV/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/merledu/FissionRV/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/merledu/FissionRV/releases/tag/v0.1.0

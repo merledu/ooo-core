@@ -75,6 +75,7 @@ except the ROB (`commit/`) and the LSQ (`memory/`), which are instantiated by th
     ├── spec/architecture.md  pipeline, parameters, limits
     ├── decisions/            one file per design decision (ADR)
     ├── scorecard.md          measured results
+    ├── roadmap.md            versions v0.3.0 → v1.0.0, item by item
     ├── git-workflow.md       issue → branch → PR → review → merge, versions and tags
     ├── images/               diagrams used by the docs (ooo_core_datapath.png: current datapath)
     ├── diagrams/             editable sources (draw.io): ooo_core_datapath.drawio

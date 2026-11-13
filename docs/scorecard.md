@@ -5,14 +5,16 @@ with their date and replaced when the measurement is redone.
 
 Configuration: the defaults of `rtl/top/main_datapath.sv` (ROB 64, IQ 32, LQ 16, SQ 32, 64 physical registers,
 8 branch tags, gshare 12 bits, BTB 256 × 2 ways, `USE_DSP_MUL = 1`, `DMEM_DUAL_PORT = 0`), ideal one-cycle
-instruction and data memories, programs compiled with `-O2 -march=rv32im`.
+instruction and data memories, programs compiled with `-O2 -march=rv32im`. CoreMark is built freestanding
+(`-ffreestanding -fno-builtin`); Dhrystone with GCC builtins on, as in riscv-tests, and the byte-at-a-time
+`strcpy` / `strcmp` of `sim/bench/dhrystone_port/port.c`.
 
 ## Performance
 
 | Benchmark | Score | IPC | Mispredictions / 1000 instr | Memory order flushes | Source |
 |---|---|---|---|---|---|
 | CoreMark (4 iterations) | **3.534 CoreMark/MHz** | 1.015 | 19.8 | 269 | `sim/bench/run_bench.py --check`, 2026-11-06 |
-| Dhrystone 2.1 (500 iterations) | **1.302 DMIPS/MHz** | 1.220 | 11.5 | 1000 | same |
+| Dhrystone 2.1 (500 iterations) | **1.703 DMIPS/MHz** | 1.173 | 8.0 | 500 | `run_bench.py --check`, 2026-11-12 |
 
 Reference point: NaxRiscv, 5.02 CoreMark/MHz, 2.93 DMIPS/MHz.
 
